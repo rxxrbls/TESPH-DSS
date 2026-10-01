@@ -1,0 +1,14 @@
+{
+  "frequency": "D",
+  "horizon": 7,
+  "validation_periods": 14,
+  "tuning_periods": 7,
+  "minimum_training_periods": 37,
+  "ma_windows": [3, 7, 14, 30],
+  "es_alphas": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+  "mape_zero_policy": "denominator_floor",
+  "mape_denominator_floor": 1.0,
+  "primary_metric": "MAPE",
+  "secondary_metric": "RMSE",
+  "approval_reference": "TA Sep 11/14; team implementation decisions in docs/week2_handoff.md"
+}
