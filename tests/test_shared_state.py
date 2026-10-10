@@ -69,11 +69,31 @@ def test_dataset_mismatch_rebuilds_analytics_and_forecast_state(monkeypatch):
     assert state.has_valid_forecast_for_active_dataset() is False
 
 
-def test_empty_forecast_result_is_still_valid_for_active_dataset(monkeypatch):
+def test_forecast_result_with_chart_contract_is_valid_for_active_dataset(monkeypatch):
     values = {
         "active_dataset_id": "dataset-a",
         "forecast_results": {
             "forecast_output": pd.DataFrame(columns=["SKU", "Forecast"]),
+            "category_eligibility": pd.DataFrame([
+                {
+                    "Category": "Kitchenware",
+                    "Eligible": True,
+                    "Eligibility Rank": 1,
+                    "Selected": True,
+                    "Demand Contribution": 0.4,
+                    "Revenue Contribution": 0.3,
+                    "Contribution": 0.35,
+                }
+            ]),
+            "category_validation_detail": pd.DataFrame([
+                {
+                    "Category": "Kitchenware",
+                    "Time": pd.Timestamp("2026-04-01"),
+                    "Method": "Moving Average",
+                    "Actual": 10,
+                    "Forecast": 9,
+                }
+            ]),
             "selection_status": pd.DataFrame([
                 {"Status": "No eligible SKU forecasts", "Forecast SKU Count": 0}
             ]),
@@ -83,6 +103,127 @@ def test_empty_forecast_result_is_still_valid_for_active_dataset(monkeypatch):
     monkeypatch.setattr(state.st, "session_state", values)
 
     assert state.has_valid_forecast_for_active_dataset() is True
+
+
+def test_forecast_result_missing_category_eligibility_is_stale(monkeypatch):
+    values = {
+        "active_dataset_id": "dataset-a",
+        "forecast_results": {
+            "forecast_output": pd.DataFrame({"SKU": ["SKU-1"]}),
+            "selection_status": pd.DataFrame([
+                {"Status": "Ready", "Forecast SKU Count": 1}
+            ]),
+        },
+        "forecast_dataset_id": "dataset-a",
+    }
+    monkeypatch.setattr(state.st, "session_state", values)
+
+    assert state.has_valid_forecast_for_active_dataset() is False
+
+
+def test_forecast_result_missing_category_chart_data_is_stale(monkeypatch):
+    values = {
+        "active_dataset_id": "dataset-a",
+        "forecast_results": {
+            "forecast_output": pd.DataFrame({"SKU": ["SKU-1"]}),
+            "category_eligibility": pd.DataFrame([
+                {
+                    "Category": "Kitchenware",
+                    "Eligible": True,
+                    "Eligibility Rank": 1,
+                    "Selected": True,
+                    "Demand Contribution": 0.4,
+                    "Revenue Contribution": 0.3,
+                    "Contribution": 0.35,
+                }
+            ]),
+            "selection_status": pd.DataFrame([
+                {"Status": "Ready", "Forecast SKU Count": 1}
+            ]),
+        },
+        "forecast_dataset_id": "dataset-a",
+    }
+    monkeypatch.setattr(state.st, "session_state", values)
+
+    assert state.has_valid_forecast_for_active_dataset() is False
+
+
+def test_stale_forecast_regeneration_uses_default_inventory_mapping(monkeypatch):
+    dataset_id = "dataset-a"
+    values = {
+        "active_dataset_id": dataset_id,
+        "prepared_transactions": pd.DataFrame({"Order ID": ["O-1"]}),
+        "analytics_results": {"sales_summary": pd.DataFrame({"Gross Revenue": [1.0]})},
+        "analytics_dataset_id": dataset_id,
+        "risk_results": pd.DataFrame({"SKU": ["S-1"], "Stock-Out Risk": ["Low"]}),
+        "mca_results": pd.DataFrame({"SKU": ["S-1"], "SKU Priority Score": [0.8]}),
+        "recommendation_results": pd.DataFrame({"SKU": ["S-1"], "Recommended Quantity": [1]}),
+        "prescriptive_dataset_id": dataset_id,
+        "forecast_results": {
+            "forecast_output": pd.DataFrame({"SKU": ["S-1"]}),
+            "selection_status": pd.DataFrame([
+                {"Status": "Ready", "Forecast SKU Count": 1}
+            ]),
+        },
+        "forecast_dataset_id": dataset_id,
+        "forecast_error_message": None,
+    }
+    monkeypatch.setattr(state.st, "session_state", values)
+    monkeypatch.setattr(state, "restore_runtime_authority", lambda: None)
+    calls = []
+
+    def fake_prepare_default_inventory_forecasts(txns):
+        calls.append(txns.copy())
+        return (
+            pd.DataFrame({"SKU": ["S-1"], "Stock": [10]}),
+            pd.DataFrame({"SKU": ["S-1"]}),
+            {"valid": True},
+            pd.DataFrame({"SKU": ["S-1"]}),
+            {
+                "forecast_output": pd.DataFrame({
+                    "SKU": ["S-1"],
+                    "Category": ["Kitchenware"],
+                    "Time": [pd.Timestamp("2026-04-02")],
+                    "Method": ["Moving Average"],
+                    "Forecast": [9],
+                }),
+                "category_eligibility": pd.DataFrame([
+                    {
+                        "Category": "Kitchenware",
+                        "Eligible": True,
+                        "Eligibility Rank": 1,
+                        "Selected": True,
+                        "Demand Contribution": 0.4,
+                        "Revenue Contribution": 0.3,
+                        "Contribution": 0.35,
+                    }
+                ]),
+                "category_validation_detail": pd.DataFrame([
+                    {
+                        "Category": "Kitchenware",
+                        "Time": pd.Timestamp("2026-04-02"),
+                        "Method": "Moving Average",
+                        "Actual": 10,
+                        "Forecast": 9,
+                    }
+                ]),
+                "selection_status": pd.DataFrame([
+                    {"Status": "Ready", "Forecast SKU Count": 1}
+                ]),
+            },
+        )
+
+    monkeypatch.setattr(
+        state,
+        "_prepare_default_inventory_forecasts",
+        fake_prepare_default_inventory_forecasts,
+    )
+
+    state.ensure_derived_outputs_for_active_dataset()
+
+    assert len(calls) == 1
+    assert state.has_valid_forecast_for_active_dataset() is True
+    assert values["forecast_dataset_id"] == dataset_id
 
 
     def test_persistence_error_message_does_not_blame_the_source_file(monkeypatch):

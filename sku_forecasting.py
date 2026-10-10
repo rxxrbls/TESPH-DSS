@@ -11,19 +11,39 @@ from dataclasses import asdict
 import numpy as np
 import pandas as pd
 
-from analytics_calculations import _clean_text, _require_columns, prepare_transactions
+from analytics_calculations import (
+    _clean_text,
+    _require_columns,
+    exclude_incomplete_latest_month,
+    prepare_transactions,
+)
 from analytics_data import load_transactions
 from forecasting_calculations import (
-    calculate_forecast_metrics, exponential_smoothing, linear_regression,
-    moving_average, select_best_forecast_method,
+    calculate_forecast_metrics,
+    evaluate_category_eligibility,
+    exponential_smoothing,
     forecast_values,
+    linear_regression,
+    moving_average,
+    prepare_forecasting_dataset,
+    select_best_forecast_method,
 )
-from methodology_config import ForecastConfig
+from methodology_config import (
+    CATEGORY_ASSESSMENT_WINDOW,
+    DEMAND_CONTRIBUTION_WEIGHT,
+    FORECAST_DEMAND_DEFINITION,
+    ForecastConfig,
+    MINIMUM_COMPLETENESS,
+    MINIMUM_CONSISTENCY,
+    MINIMUM_HISTORY_PERIODS,
+    REVENUE_CONTRIBUTION_WEIGHT,
+)
 
 
 MAPPING_COLUMNS = ["product_key", "SKU", "Product", "Category", "active", "category_active", "client_approved"]
 HISTORY_COLUMNS = ["Time", "Product Key", "SKU", "Product", "Category", "Demand", "Revenue", "Observed"]
 DETAIL_COLUMNS = ["SKU", "Product", "Category", "Origin", "Time", "Step", "Method", "Actual", "Forecast", "MA Window", "ES Alpha"]
+CATEGORY_VALIDATION_COLUMNS = ["Category", "Time", "Method", "Actual", "Forecast"]
 METRIC_COLUMNS = ["SKU", "Product", "Category", "Method", "MAE", "RMSE", "MAPE", "Raw MAPE", "R2", "Validation Observations", "Zero Actual Count", "MAPE Status"]
 FORECAST_COLUMNS = ["SKU", "Product", "Category", "Time", "Forecast", "Method", "MA Window", "ES Alpha", "MAE", "RMSE", "MAPE", "Raw MAPE", "MAPE Status", "Selection Basis", "R2"]
 METHODS = ("Moving Average", "Exponential Smoothing", "Linear Regression")
@@ -241,15 +261,31 @@ def run_sku_forecasting(
     results = {
         "forecasting_dataset": history, "sku_dataset": pd.DataFrame(columns=HISTORY_COLUMNS),
         "validation_detail": pd.DataFrame(columns=DETAIL_COLUMNS),
+        "category_validation_detail": pd.DataFrame(columns=CATEGORY_VALIDATION_COLUMNS),
         "validation_metrics": pd.DataFrame(columns=METRIC_COLUMNS),
         "best_methods": pd.DataFrame(columns=METRIC_COLUMNS),
         "forecast_output": pd.DataFrame(columns=FORECAST_COLUMNS),
         "product_forecast": pd.DataFrame(columns=["Product", "Category", "Time", "Forecast"]),
         "category_forecast": pd.DataFrame(columns=["Category", "Time", "Forecast"]),
+        "category_eligibility": pd.DataFrame(),
         "parameter_search": pd.DataFrame(columns=["SKU", "Method", "MA Window", "ES Alpha", "RMSE", "MAE"]),
         "methodology": pd.DataFrame([{"Parameter": k, "Value": str(v)} for k, v in asdict(config).items()]),
         "inventory_review": inventory_review,
     }
+    category_history = prepare_forecasting_dataset(
+        exclude_incomplete_latest_month(transactions, coverage_end=coverage_end),
+        frequency="M",
+        demand_definition=FORECAST_DEMAND_DEFINITION,
+    )
+    results["category_eligibility"] = evaluate_category_eligibility(
+        category_history,
+        assessment_window=CATEGORY_ASSESSMENT_WINDOW,
+        minimum_history_periods=MINIMUM_HISTORY_PERIODS,
+        minimum_completeness=MINIMUM_COMPLETENESS,
+        minimum_consistency=MINIMUM_CONSISTENCY,
+        demand_contribution_weight=DEMAND_CONTRIBUTION_WEIGHT,
+        revenue_contribution_weight=REVENUE_CONTRIBUTION_WEIGHT,
+    )
     keys = mapping_template(transactions).rename(columns={"product_key": "Product Key"})[
         ["Product Key", "SKU", "Product", "Category"]
     ]
@@ -312,6 +348,11 @@ def run_sku_forecasting(
         results["eligibility"] = eligibility
         if details:
             results["validation_detail"] = pd.concat(details, ignore_index=True)
+            results["category_validation_detail"] = (
+                results["validation_detail"]
+                .groupby(["Category", "Time", "Method"], as_index=False)[["Actual", "Forecast"]]
+                .sum()
+            )[CATEGORY_VALIDATION_COLUMNS]
             results["validation_metrics"] = sku_metrics(results["validation_detail"], config)
             results["best_methods"] = pd.concat(winners, ignore_index=True)[METRIC_COLUMNS + ["Selection Basis"]]
             results["parameter_search"] = pd.concat(searches, ignore_index=True)

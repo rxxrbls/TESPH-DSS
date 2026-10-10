@@ -11,9 +11,11 @@ import pytest
 st = pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest
 
+import etl
 import etl_inventory
 import forecasting_pipeline
 import prescriptive_pipeline
+from etl_config import FINAL_OUTPUT_DIR
 import utils.components as components
 from utils.state import DEFAULT_STATE, DataStatus
 
@@ -115,12 +117,15 @@ def _select_and_confirm_stock(app: AppTest) -> AppTest:
     return app.run()
 
 
+def _validate_stock_button(app: AppTest):
+    return next(button for button in app.button if button.label == "Validate stock data")
+
+
 def test_validate_stock_data_click_publishes_a_persistent_success_outcome(monkeypatch):
     app = _select_and_confirm_stock(_run_stock_page(monkeypatch))
 
     assert not app.exception
-    assert app.button[0].label == "Validate stock data"
-    app.button[0].click().run()
+    _validate_stock_button(app).click().run()
 
     assert not app.exception
     assert any(message.value == "Current-stock snapshot validated and connected outputs refreshed." for message in app.success)
@@ -130,23 +135,74 @@ def test_validate_stock_data_click_publishes_a_persistent_success_outcome(monkey
     assert any(message.value == "Current-stock snapshot validated and connected outputs refreshed." for message in app.success)
 
 
+def test_manual_stock_upload_loads_governed_product_dimension_without_session_schema(monkeypatch):
+    app = _select_and_confirm_stock(_run_stock_page(monkeypatch))
+    app.session_state["star_schema"] = None
+
+    expected_dim = pd.DataFrame({"product_key": ["GOVERNED-P1"]})
+    loaded_tables = []
+    crosswalk_dimensions = []
+
+    def _load_final_table(table_name, output_dir):
+        loaded_tables.append((table_name, output_dir))
+        return expected_dim
+
+    def _build_crosswalk(_inventory, dim_product, _config):
+        crosswalk_dimensions.append(dim_product.copy())
+        return _crosswalk()
+
+    monkeypatch.setattr(etl, "load_final_table", _load_final_table)
+    monkeypatch.setattr(etl_inventory, "build_inventory_crosswalk", _build_crosswalk)
+
+    _validate_stock_button(app).click().run()
+
+    assert not app.exception
+    assert loaded_tables == [("dim_product", FINAL_OUTPUT_DIR)]
+    assert len(crosswalk_dimensions) == 1
+    pd.testing.assert_frame_equal(crosswalk_dimensions[0], expected_dim)
+    assert any(
+        message.value == "Current-stock snapshot validated and connected outputs refreshed."
+        for message in app.success
+    )
+
+
 def test_stock_workflow_shows_the_downstream_failure_and_retains_validated_snapshot(monkeypatch):
     app = _select_and_confirm_stock(_run_stock_page(monkeypatch, forecast_error="No eligible SKU forecast is available"))
 
-    app.button[0].click().run()
+    _validate_stock_button(app).click().run()
 
     assert not app.exception
     assert any("Current-stock processing did not complete." in message.value for message in app.error)
-    assert any("Reason: No eligible SKU forecast is available" in message.value for message in app.caption)
+    assert any(
+        "Reason: ValueError: No eligible SKU forecast is available" in message.value
+        for message in app.caption
+    )
     assert app.session_state["inventory_validation"]["row_count"] == 2
     assert app.session_state["forecast_results"] is None
     assert app.session_state["risk_results"] is None
 
 
+def test_stock_workflow_shows_unexpected_downstream_exception_details(monkeypatch):
+    app = _select_and_confirm_stock(_run_stock_page(monkeypatch))
+
+    def _raise_forecast(*_args, **_kwargs):
+        raise RuntimeError("forecast worker failed")
+
+    monkeypatch.setattr(forecasting_pipeline, "run_forecasting_pipeline", _raise_forecast)
+    _validate_stock_button(app).click().run()
+
+    assert not app.exception
+    assert any(
+        "Reason: RuntimeError: forecast worker failed" in message.value
+        for message in app.caption
+    )
+    assert app.session_state["inventory_validation"]["row_count"] == 2
+
+
 def test_stock_validation_failure_is_visible_without_publishing_stock_or_downstream_results(monkeypatch):
     app = _select_and_confirm_stock(_run_stock_page(monkeypatch, validation_valid=False))
 
-    app.button[0].click().run()
+    _validate_stock_button(app).click().run()
 
     assert not app.exception
     assert any("Current-stock validation failed." in message.value for message in app.error)
@@ -155,8 +211,11 @@ def test_stock_validation_failure_is_visible_without_publishing_stock_or_downstr
     assert app.session_state["risk_results"] is None
 
 
-def test_stock_workflow_renders_an_explicit_running_status(monkeypatch):
+def test_stock_workflow_uses_simple_spinner_without_detailed_progress_messages():
     source = PAGE_PATH.read_text(encoding="utf-8")
 
-    assert 'st.status("Validating the selected current-stock snapshot...", expanded=True)' in source
-    assert "Refreshing the SKU forecast using the active consolidated transaction history." in source
+    assert 'st.spinner("Processing current-stock data...")' in source
+    assert "st.status(" not in source
+    assert "Reading the selected workbook and checking stock identifiers and values." not in source
+    assert "Crosswalking current stock to the active consolidated transaction history." not in source
+    assert "Refreshing the SKU forecast using the active consolidated transaction history." not in source

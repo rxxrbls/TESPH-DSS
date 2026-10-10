@@ -1,64 +1,69 @@
-"""Local, session-based access control for the offline TESPH DSS."""
+"""Local access control for the offline TESPH DSS."""
 
 from __future__ import annotations
 
-import hmac
-import os
-from collections.abc import Mapping
-
 import streamlit as st
+import time
 
-from utils.state import reset_application_session
+from utils.account_store import authenticate_user, is_auth_configured
+from utils.state import DEFAULT_STATE
+
+DEFAULT_SESSION_TIMEOUT_MINUTES = 30
+VALID_SESSION_TIMEOUT_MINUTES = (15, 30, 60, 120)
 
 
-def _configured_credentials() -> tuple[str, str] | None:
-    """Read the single local account without exposing its values to the UI."""
+def get_session_timeout_minutes() -> int:
+    """Return the configured inactivity timeout for this Streamlit session."""
+    value = st.session_state.get("session_timeout_minutes")
+    if value in VALID_SESSION_TIMEOUT_MINUTES:
+        return int(value)
     try:
-        auth_config = st.secrets.get("auth", {})
+        configured = st.secrets.get("auth", {}).get("session_timeout_minutes")
     except (FileNotFoundError, KeyError, OSError):
-        auth_config = {}
+        configured = None
+    if configured in VALID_SESSION_TIMEOUT_MINUTES:
+        return int(configured)
+    return DEFAULT_SESSION_TIMEOUT_MINUTES
 
-    if isinstance(auth_config, Mapping):
-        username = auth_config.get("username")
-        password = auth_config.get("password")
-        if isinstance(username, str) and isinstance(password, str) and username and password:
-            return username, password
 
-    # A process-local fallback supports development without a secrets file.
-    username = os.getenv("TESPH_AUTH_USERNAME")
-    password = os.getenv("TESPH_AUTH_PASSWORD")
-    if username and password:
-        return username, password
-    return None
+def set_session_timeout_minutes(minutes: int) -> None:
+    """Persist the inactivity timeout preference in the current session."""
+    if minutes in VALID_SESSION_TIMEOUT_MINUTES:
+        st.session_state["session_timeout_minutes"] = int(minutes)
 
 
 def is_authentication_configured() -> bool:
     """Return whether a local credential has been configured."""
-    return _configured_credentials() is not None
+    return is_auth_configured()
 
 
 def authenticate(username: str, password: str) -> bool:
-    """Validate a submitted credential against the local configuration."""
-    credentials = _configured_credentials()
-    if credentials is None:
-        return False
-
-    configured_username, configured_password = credentials
-    return hmac.compare_digest(username.encode("utf-8"), configured_username.encode("utf-8")) and hmac.compare_digest(
-        password.encode("utf-8"), configured_password.encode("utf-8")
-    )
+    """Validate a submitted credential against the operational account store."""
+    return authenticate_user(username, password)
 
 
 def is_authenticated() -> bool:
     """Return the centralized authentication state for this browser session."""
-    return bool(st.session_state.get("authenticated", False))
+    if not bool(st.session_state.get("authenticated", False)):
+        return False
+    now = time.time()
+    last_active = st.session_state.get("_last_activity_time")
+    if last_active is not None and now - float(last_active) > get_session_timeout_minutes() * 60:
+        logout()
+        return False
+    st.session_state["_last_activity_time"] = now
+    return True
 
 
-def start_authenticated_session() -> None:
+def start_authenticated_session(username: str | None = None) -> None:
     """Mark the current Streamlit session as authenticated after validation."""
     st.session_state["authenticated"] = True
+    st.session_state["_last_activity_time"] = time.time()
+    if username:
+        st.session_state["authenticated_username"] = username
 
 
 def logout() -> None:
     """Clear temporary session data and restore the signed-out defaults."""
-    reset_application_session()
+    st.session_state.clear()
+    st.session_state.update(DEFAULT_STATE)
