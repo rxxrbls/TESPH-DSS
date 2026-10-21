@@ -1,6 +1,6 @@
 # Project documentation
 
-**`sab-week3` is a work-in-progress backup checkpoint. It is not a release, a merge request, or a handoff to Member 3.** Equal-third baseline weights and reporting the historical baseline with its zero-variance limitation are approved. Expanded-period validation and combined-build testing remain pending.
+**Member 2 integration candidate: TA historical validation accepted; equal-third weights active. Synthetic staging passed. Member 3 must validate the actual merged build before final system acceptance.**
 
 ## Current references
 
@@ -11,7 +11,7 @@
 - [Three-criterion implementation](three_criterion_implementation_results.md): functions, refresh/audit lifecycle and earlier baseline evidence.
 - [Return/refund coverage](return_refund_coverage_record.md): date windows and coverage limitations.
 - [SKU mapping investigation](sku_mapping_recovery_report.md): original-source audit and isolated correction results.
-- [Candidate integration notes](corrected_candidate_integration_handoff.md): draft future integration instructions, not an issued handoff.
+- [Candidate integration notes](corrected_candidate_integration_handoff.md): current integration instructions.
 - [Forecast accuracy](forecast_accuracy_validation.md): metrics and missing-value behavior.
 - [ETL guide](etl_integration_guide.md), [data dictionary](data_dictionary.md), [shared contract](shared_data_contract.md), [database](star_schema_database.md), and [forecast/descriptive definitions](week2_handoff.md).
 
@@ -19,4 +19,7 @@
 
 TA request drafts, copy-paste messages and superseded batch handoffs are intentionally excluded. A private local backup is under ignored `.artifacts/document_cleanup/`; it is not uploaded.
 
-GitHub contains source and verification evidence. Local corrected datasets, runtime state, credentials and private archives are not included in this checkpoint. The existing governed files in Git remain unchanged.
+GitHub contains source and verification evidence. Corrected datasets, runtime state, credentials and private archives are supplied separately. The existing governed files in Git remain unchanged.
+
+- [Synthetic staging results](synthetic_mca_validation.md)
+- [Member 3 acceptance checklist](member3_acceptance_checklist.md)

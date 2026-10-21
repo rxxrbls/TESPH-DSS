@@ -1,4 +1,4 @@
-"""Conditionally approved three-criterion MCA; all rankings are provisional.
+"""TA-approved three-criterion MCA; dataset coverage limitations remain explicit.
 
 No financial amounts or physical-return assumptions enter this quantity rate.
 Coverage describes selected request dates, not lifetime returns for an order.
@@ -170,7 +170,7 @@ def rank_scenarios(criteria):
         results[name] = calculate_mca_scores(eligible, identifier_columns=["SKU"],
             criteria=CRITERIA, weights=weights, directions=DIRECTIONS)
         results[name]["Weight Scenario"] = name
-        results[name]["Approval Status"] = ("TA-approved equal-weight baseline; final validation pending"
+        results[name]["Approval Status"] = ("TA-approved equal-weight baseline; historical validation accepted"
             if name == "equal_thirds" else "Sensitivity comparison only; not the approved baseline")
     a = results["equal_thirds"]
     b = results["volume_quality"]
@@ -191,7 +191,7 @@ def rank_scenarios(criteria):
         "policy_version": POLICY_VERSION,
         "final_weights_locked": True,
         "approved_baseline": "equal_thirds",
-        "final_validation_pending": True,
+        "final_validation_pending": False,
         "criterion_unique_values": {c: int(eligible[c].nunique()) for c in CRITERIA},
         "criterion_minimums": {c: float(eligible[c].min()) if len(eligible) else None for c in CRITERIA},
         "criterion_maximums": {c: float(eligible[c].max()) if len(eligible) else None for c in CRITERIA},

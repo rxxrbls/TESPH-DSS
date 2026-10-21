@@ -33,7 +33,7 @@ def main():
         approved = approved or (three and name.startswith("validation_outputs/three_criterion_mca/")
                                 and path.suffix in {".json", ".csv", ".txt", ".png"}
                                 and path.name != "package_receipt.json")
-        approved = approved or (readiness and name.startswith("validation_outputs/integration_readiness/")
+        approved = approved or (readiness and name.startswith(("validation_outputs/integration_readiness/", "validation_outputs/historical_variance/", "validation_outputs/sku_recovery/", "validation_outputs/synthetic_mca/"))
                                 and path.suffix in {".json", ".csv", ".txt"}
                                 and path.name != "package_receipt.json")
         if approved and (ROOT / path).is_file() and "__pycache__" not in path.parts:
@@ -45,7 +45,7 @@ def main():
     manifest = {"snapshot_id": snapshot_id, "git_base_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT).decode().strip(),
                 "branch": subprocess.check_output(["git", "branch", "--show-current"], cwd=ROOT).decode().strip(),
                 "source_files": hashes, "required_governed_data": data,
-                "scope": "Uncommitted source snapshot. Governed datasets, raw data, real secrets, runtime databases and local logs are not bundled. Supply the existing authorized data handoff separately."}
+                "scope": "Selected source snapshot; consult source hashes and base commit. Governed datasets, raw data, real secrets, runtime databases and local logs are not bundled. Supply the existing authorized data handoff separately."}
     if readiness:
         evidence = json.loads((ROOT / "validation_outputs/integration_readiness/summary.json").read_text())
         manifest["corrected_candidate_data"] = evidence["candidate_files"]
@@ -53,7 +53,7 @@ def main():
             "required_governed_data records the original audit inputs. For the corrected candidate, "
             "use the coherent corrected CSV/database set described in "
             "docs/corrected_candidate_integration_handoff.md and corrected_candidate_data hashes. "
-            "Private data is supplied separately; final weights remain provisional.")
+            "Private data is supplied separately; equal-third policy and historical validation are TA-approved. Combined-build acceptance remains required.")
     archive = OUTPUT / ("tesph_sku_corrected_readiness_candidate.zip" if readiness else
                         "tesph_three_criterion_provisional.zip" if three else "tesph_integration_candidate.zip")
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:

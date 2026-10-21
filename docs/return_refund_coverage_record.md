@@ -1,4 +1,4 @@
-> Current policy update (October 21): equal-third baseline weights and reporting the historical baseline with its limitations are approved. Expanded-period checks and final validation remain required. Earlier pending-weight statements below describe the previous checkpoint. This is still a backup branch, not an issued handoff.
+> Final TA decision (October 21, 2026): historical validation accepted; equal thirds approved; no further historical return data required. Earlier results below remain dated evidence. Synthetic staging validation is recorded in `synthetic_mca_validation.md`. Combined-build acceptance is still required.
 
 ﻿# Return/refund coverage record
 
@@ -39,4 +39,4 @@ An empty monthly request export is not a missing file. Unknown coverage is not z
 
 ## Approval and remaining decision
 
-TA Option 3 authorizes implementation/testing. Both weight scenarios remain provisional. See [three-criterion implementation and TA results](three_criterion_implementation_results.md) for actual eligibility, correlation, sensitivity, validation and remaining decisions. No exact export-time question remains outstanding.
+The TA has accepted historical validation and equal-third baseline weights. The 25/25/50 scenario is retained as historical comparison only. See [three-criterion implementation and TA results](three_criterion_implementation_results.md) for actual eligibility, correlation, sensitivity, validation and remaining decisions. No exact export-time question remains outstanding.

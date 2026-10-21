@@ -299,11 +299,11 @@ def run_prescriptive_pipeline(
     if mca_coverage is not None:
         scenarios, sensitivity, diagnostic = rank_scenarios(criteria)
         if mca_weight_scenario not in scenarios:
-            raise ValueError("Unknown provisional MCA weight scenario")
+            raise ValueError("Unknown MCA weight scenario")
         mca = scenarios[mca_weight_scenario]
         for column in ("Eligible Ordered Units", "Recorded Refunded Units", "Return Review Status"):
             mca_audit[column] = criteria[column]
-        mca_audit["Approval Status"] = ("TA-approved equal-weight baseline; final validation pending"
+        mca_audit["Approval Status"] = ("TA-approved equal-weight baseline; historical validation accepted"
             if mca_weight_scenario == "equal_thirds" else "Sensitivity comparison only; not the approved baseline")
         mca_audit = mca_audit.drop(columns=["Supplier Lead Time Source", "Profit Margin Status"])
     else:

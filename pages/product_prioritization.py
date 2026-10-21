@@ -34,9 +34,9 @@ from three_criterion_mca import CRITERIA as THREE_CRITERIA, RATE
 is_three = audit is not None and RATE in audit
 display_criteria = THREE_CRITERIA if is_three else MCA_CRITERIA
 if is_three:
-    st.caption("Three-criterion MCA: Sales Velocity, Forecasted Demand, and Recorded Return/Refund Quantity Rate (%). TA-approved equal-third baseline weights; expanded-period checks and final TA validation pending. Complete eligible SKUs only; Min-Max normalization, valid constant criteria = 0.5, missing/unresolved criteria = N/A and exclusion. Selected request-date coverage is not lifetime return history.")
+    st.caption("Three-criterion MCA: Sales Velocity, Forecasted Demand, and Recorded Return/Refund Quantity Rate (%). TA-approved equal-third baseline weights; historical validation accepted by TA. Complete eligible SKUs only; Min-Max normalization, valid constant criteria = 0.5, missing/unresolved criteria = N/A and exclusion. Selected request-date coverage is not lifetime return history.")
 else:
-    st.caption("Legacy five criteria: Sales Velocity, Profit Margin, Supplier Lead Time, Forecasted Demand, Return Rate. Upload the cleaned return/refund evidence under Data Upload to activate the conditionally approved three-criterion assessment. Legacy weights: 20% each.")
+    st.caption("Legacy five criteria: Sales Velocity, Profit Margin, Supplier Lead Time, Forecasted Demand, Return Rate. Upload the cleaned return/refund evidence under Data Upload to activate the TA-approved three-criterion assessment. Legacy weights: 20% each.")
 if audit is not None and not audit.empty:
     # Explicit display strings: the grid renders numeric nulls as None even
     # when a Styler provides N/A. Keep the downloadable audit numeric.
@@ -72,6 +72,6 @@ else:
 
 comparison = st.session_state.get("mca_sensitivity")
 if is_three and comparison is not None:
-    st.subheader("Provisional weight sensitivity")
+    st.subheader("Historical alternative weight sensitivity")
     st.dataframe(comparison, hide_index=True)
     st.download_button("Download weight comparison", comparison.to_csv(index=False), "mca_weight_comparison.csv", "text/csv")

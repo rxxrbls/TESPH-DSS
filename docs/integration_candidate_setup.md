@@ -1,76 +1,38 @@
-> Current policy update (October 21): equal-third baseline weights and reporting the historical baseline with its limitations are approved. Expanded-period checks and final validation remain required. Earlier pending-weight statements below describe the previous checkpoint. This is still a backup branch, not an issued handoff.
+# TESPH-DSS integration preparation — October 21, 2026
 
-# Integration candidate setup and verification
+**LOCAL DRAFT — not yet issued to Member 3. TA historical validation is accepted.**
 
-> This branch is a work-in-progress backup. The instructions below are retained for local testing and future integration; no Member 3 handoff has been issued. See [current verification status](verification_status.md).
+Source: final approval update on `sab-week3`; see the packaged manifest for the exact source commit. No merge or deployment has been performed. This note supersedes stale approval/test-count wording in the frozen historical documents without altering that source checkpoint.
 
-## Source and data
+## Current decisions and evidence
 
-Optional local packaging: `python qa/package_candidate.py --readiness` creates `.artifacts/integration_candidate/tesph_sku_corrected_readiness_candidate.zip` after the documented private QA prerequisites exist. `CANDIDATE_MANIFEST.json` records source hashes, base commit, branch and separate corrected-data hashes. A ZIP is not needed to push this backup branch.
+- Equal weights (1/3 each) are TA-approved. Historical baseline reporting with its limitations is approved. The 25/25/50 option is a sensitivity comparison only.
+- Latest saved regression: **432 passed**, one existing pandas date-parsing warning. See `validation_outputs/integration_readiness/pytest_final_approval.txt`. Packaging verifies hashes; it does not constitute another regression or combined-frontend test.
+- Corrected full transaction CSV: **226,203 rows, 76 columns**. Its matching database and six Star Schema CSVs were independently compared. Use the entire corrected set together.
+- With the documented raw stock source, prior corrected-candidate checks produced 67 accepted catalog products, 62 forecast SKUs and 61 MCA scores. One forecast SKU remained unavailable. These counts are conditional on the same inputs/configuration, not permanent expectations for new data.
+- April baseline forecasts and counted refund rates remain zero among ranked SKUs. Earlier December–February assessments have non-negligible forecast variation; refund rates remain zero. See `docs/historical_variance_checks.md` and `validation_outputs/historical_variance/`.
+- The TA accepted these results for final model sign-off; no further historical return-data collection is required. No evidence yet establishes improved business prioritization or sensitivity with varying refund rates. March's tiny positive forecast is not meaningful demand variation.
 
-Start from a separate checkout of the team's repository. Compare and integrate candidate files rather than overwriting unrelated frontend work. Preserve the existing governed `final_outputs` handoff and authorized `raw_data` files. Datasets, live databases and real credentials are not bundled; the manifest records the required governed CSV hashes. `final_etl_handoff.py` regenerates governed outputs and must not be run as an application startup step.
+## Package contents
 
-The app is intended for local single-operator use. These checks do not establish concurrent-session consistency or public production-hosting readiness.
+- `source.zip`: selected application source, tests, technical documents and QA evidence from the clean frozen checkpoint. Includes dependency snapshot. Private transaction data and credentials are excluded.
+- `PRIVATE_DATA.zip`: corrected CSV/database set, supplementary governed workbooks, stock inputs and cleaned return/refund backend CSV. **Contains private business/customer records. Keep local or use the team's authorized private transfer; do not upload it to GitHub.**
+- `MANIFEST.json`: source/data/archive SHA-256 values, commit and environment version.
+- `tested-environment.txt`: installed dependency versions for reproduction.
+- `corrected_candidate_integration_handoff.md`: flow, rules and merge-sensitive modules.
+- `member3_acceptance_checklist.md`: checks for Member 3 after integration, with explicit uncompleted items.
 
-## Windows setup
+## Setup in a separate test folder
 
-Use the Python version recorded in the QA evidence when reproducing exact results. From the repository root:
+1. Preserve the existing frontend checkout and any live database. Extract `source.zip` into an empty test folder; do not overlay an operational checkout. Member 3 later merges reviewed code changes into their branch, preserving unrelated frontend work.
+2. Verify both archive hashes against `MANIFEST.json` using PowerShell `Get-FileHash -Algorithm SHA256`. Extract `PRIVATE_DATA.zip` into that same empty test folder. It places the corrected database at `runtime_data/active_transactions.db` and the coherent CSVs under `final_outputs/`.
+3. Create a virtual environment using the Python version in the manifest. Run `python -m venv .venv`, then `.\.venv\Scripts\python.exe -m pip install -r tested-environment.txt`. The repository's `requirements-dev.txt` is the supported-range alternative; record any differences.
+4. Configure private login credentials using `.streamlit/secrets.toml.example`. Never commit real credentials. Start `.\.venv\Scripts\python.exe -m streamlit run app.py`.
+5. The supplied database contains sales state, not an activated return-review history. Use Data Upload & ETL to connect `raw_data/current_stock/shopee_current_stock_raw_2026-09-09.xlsx`, then upload `private_inputs/prepared_return_refund_backend.csv` in the three-criterion return/refund section. Follow its validation prompts and refresh connected outputs.
+6. Explicit historical dates: orders **May 22, 2020–April 24, 2026**; selected return-request creation coverage **May 1, 2020–April 24, 2026**. Exports were requested October 15–16, 2026, timezone unspecified. Confirm only documented selected-window coverage; this is not complete lifetime refund coverage. Export Request Time is not proven to be a universal status-update cutoff.
+7. Record the configured assessment/as-of dates. September stock with April-ending sales is a historical/scenario combination, not proof of current operational validity. Do not bypass stale-stock safeguards to reproduce old counts.
+8. Run the acceptance checklist. Record results on the exact merged commit and intended demo computer before claiming final integration readiness.
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-```
+Do not run `final_etl_handoff.py` or the legacy standalone ETL as an app-startup step. Do not substitute the earlier subset `source_exact_candidate.csv` or the 216,203-row incremental benchmark seed for the corrected full dataset.
 
-The archive's `tested-environment.txt` records installed versions for diagnosing differences. The project requirements retain supported dependency ranges. For an exact environment reproduction, install with `python -m pip install -r tested-environment.txt` in the new virtual environment.
-
-Configure the local account using `.streamlit/secrets.toml.example` as the template for private `.streamlit/secrets.toml`, or set process-local `TESPH_AUTH_USERNAME` and `TESPH_AUTH_PASSWORD`. Do not commit the real secret file. Run:
-
-```powershell
-.\.venv\Scripts\python.exe -m streamlit run app.py
-```
-
-The normal app writes active state under `runtime_data/`, separate from immutable `final_outputs`.
-
-## Regression and actual-data checks
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe validate_forecast_accuracy.py
-.\.venv\Scripts\python.exe validate_approved_mca.py
-```
-
-`validate_approved_mca.py` verifies the legacy five-criterion compatibility path; its financial/lead-time requirements do not apply to the three-criterion workflow. For the current workflow, use `python qa/validate_three_criterion.py` and the corrected candidate reproduction instructions in [the draft integration notes](corrected_candidate_integration_handoff.md). Actual-data QA requires the authorized private datasets and seed artifacts. Dates are explicit historical assessment dates, not today's operational coverage. Final weights and baseline acceptance remain provisional.
-
-## Isolated performance checks
-
-```powershell
-.\.venv\Scripts\python.exe -u qa/benchmark.py --prepare
-.\.venv\Scripts\python.exe -u qa/benchmark.py --runs 3 --label final
-```
-
-Preparation creates isolated databases under ignored `.artifacts/qa` and needs several GB of free disk space. The repeat CSV contains all 226,203 actual source rows. The incremental fixture restores 10,000 real uniquely identified lines removed from a 216,203-row baseline. No fabricated orders are used. Every trial copies its original seed. Preparation and post-run verification are outside the timed pipeline. Fingerprints, row counts, quantities, monetary totals and SQLite integrity are verified after uploads.
-
-Run benchmarks alone, with other expensive jobs stopped. Workers use fresh Python processes and Windows peak-working-set counters. Process peaks include setup. Timings cover backend upload/reconciliation/publication; browser-visible post-upload analytics/forecasts are separate. Compare medians with 120s repeat, 180s incremental and 60s forecast targets, and memory with the 2 GB target on a machine with at least 8 GB RAM. Record units and hardware.
-
-## Local browser acceptance
-
-After benchmark preparation, with Edge installed:
-
-```powershell
-.\.venv\Scripts\python.exe -u qa/check_uploaded_mca.py
-.\.venv\Scripts\python.exe -u qa/browser_check.py
-```
-
-The runner launches headless Edge and its own local Streamlit server. A temporary entry point changes runtime paths and test credential configuration; login validation, routing, pages and pipelines use production code. Generated credentials exist only in that child process. The user's live runtime database and password are untouched. Screenshots/results are saved under `validation_outputs/integration_qa/browser/`. The temporary entry point is removed and server stopped on exit.
-
-Review the captures manually, then repeat login, upload, duplicate upload, invalid input, forecast, stock validation, risk, prioritization and replenishment on the actual combined frontend build. Automated tests additionally cover stale/future stock, state invalidation, changed/ambiguous transactions, locking, persistence failure and missing inputs.
-
-## Packaging and acceptance
-
-```powershell
-.\.venv\Scripts\python.exe qa/package_candidate.py
-```
-
-Every included file is verified against its checksum. The archive includes current forecast/MCA audit tables and integration QA summaries/screenshots; raw transaction data, runtime databases and logs are excluded. Hand the archive/manifest to the team through the established process, with authorized data supplied separately. This command does not push, merge or deploy.
-
-After integration, record the final commit, dataset checksums, configuration, regression results, measured performance, browser evidence, unresolved MCA inputs and accepted limitations. Final visual acceptance and deployment-machine checks belong to that exact version.
+Some historical QA reproduction scripts require original raw workbooks, benchmark seeds and investigation artifacts not included here. Their saved results are included, but they are not one-command acceptance tests for a fresh installation. Supply those prerequisites separately if full audit reconstruction is needed; do not fabricate substitutes.

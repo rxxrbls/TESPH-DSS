@@ -1,4 +1,4 @@
-> Current policy update (October 21): equal-third baseline weights and reporting the historical baseline with its limitations are approved. Expanded-period checks and final validation remain required. Earlier pending-weight statements below describe the previous checkpoint. This is still a backup branch, not an issued handoff.
+> Final TA decision (October 21, 2026): historical validation accepted; equal thirds approved; no further historical return data required. Earlier results below remain dated evidence. Synthetic staging validation is recorded in `synthetic_mca_validation.md`. Combined-build acceptance is still required.
 
 # SKU mapping investigation and isolated recovery trial
 

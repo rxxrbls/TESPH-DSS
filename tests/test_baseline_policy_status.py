@@ -9,6 +9,6 @@ def test_approved_baseline_is_distinct_from_pending_validation_and_comparison():
     assert all(w == 1/3 for w in SCENARIOS['equal_thirds'].values())
     assert summary['approved_baseline'] == 'equal_thirds'
     assert summary['final_weights_locked'] is True
-    assert summary['final_validation_pending'] is True
+    assert summary['final_validation_pending'] is False
     assert scenarios['equal_thirds']['Approval Status'].str.contains('TA-approved').all()
     assert scenarios['volume_quality']['Approval Status'].str.contains('not the approved baseline').all()

@@ -1,6 +1,6 @@
 # Historical-period mechanics checks — October 21, 2026
 
-Equal weights (1/3 each) are the approved baseline. The limited April historical baseline may be reported with its limitations. Final sign-off remains pending additional validation. This document records technical results, not an approval request or a Member 3 handoff.
+Equal weights (1/3 each) are the approved baseline. The limited April historical baseline may be reported with its limitations. The TA accepted these historical checks for final model sign-off on October 21, 2026; no additional historical return data is required. This document records technical results, not an approval request or a Member 3 handoff.
 
 ## Scope
 
@@ -27,6 +27,6 @@ Recorded Return/Refund Quantity Rate remains zero for every eligible product in 
 
 ## Remaining limitation
 
-These runs provide additional real-data evidence for the two varying criteria. They do not demonstrate three varying criteria or reconstruct historical status availability. The remaining return-mapping/coverage limitation and final sign-off still require review. Current baseline weights remain equal thirds; no automatic methodology or population change was made to force nonzero refunds.
+These runs provide additional real-data evidence for the two varying criteria. They do not demonstrate three varying criteria or reconstruct historical status availability. The TA accepted the remaining return-mapping/coverage limitation for reporting. Current baseline weights remain equal thirds; no automatic methodology or population change was made to force nonzero refunds.
 
 Reproduce with `python qa/check_historical_variance.py` after the private corrected-data prerequisites are prepared. Evidence, source hashes, every assessment and both weight-scenario CSVs are in `validation_outputs/historical_variance/`. Request-level private records are not written to the public evidence directory.

@@ -2,7 +2,7 @@
 
 Shopee transaction exports provide historical sales data; they do not establish current stock, stock age, or supplier lead time. Current inventory must be supplied and validated separately. Configurable system assumptions are documented in `methodology_config.py`.
 
-> **Work in progress:** Equal-third baseline weights and reporting the historical baseline with its limitations are approved. Expanded-period validation is required before final sign-off. This branch is a backup checkpoint, not a final release or a handoff.
+> **Work in progress:** Equal-third baseline weights and reporting the historical baseline with its limitations are approved. Historical-period validation is accepted by the TA. This is an integration candidate; merged-build acceptance is still required.
 
 ## MCA
 
@@ -14,7 +14,7 @@ Shopee transaction exports provide historical sales data; they do not establish 
 
 The recorded quantity rate is eligible recorded refunded units divided by eligible ordered units, times 100, within explicit order and request-date windows. It does not claim physical returns or lifetime refund coverage. Unresolved relevant evidence, missing coverage or an invalid denominator makes the rate unavailable. Missing criteria exclude a product; they are not assigned zero or 0.5.
 
-Each criterion uses Min-Max normalization over complete finite eligible products. A valid constant criterion receives 0.5. Ranking uses full precision with ascending SKU ties; High/Medium/Low groups use cumulative ceiling cutoffs of 25% and 75%. The displayed baseline uses approved equal thirds; overall validation remains pending. See [implementation and counting rules](three_criterion_implementation_results.md) and [coverage record](return_refund_coverage_record.md).
+Each criterion uses Min-Max normalization over complete finite eligible products. A valid constant criterion receives 0.5. Ranking uses full precision with ascending SKU ties; High/Medium/Low groups use cumulative ceiling cutoffs of 25% and 75%. The displayed baseline uses approved equal thirds; historical validation is accepted; merged-build acceptance remains required. See [implementation and counting rules](three_criterion_implementation_results.md) and [coverage record](return_refund_coverage_record.md).
 
 ## Legacy five-criterion compatibility
 

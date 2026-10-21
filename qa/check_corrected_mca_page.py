@@ -29,7 +29,7 @@ def main():
     pd.testing.assert_frame_equal(displayed, rankings)
     readiness = next(t.value for t in app.dataframe if "MCA Status" in t.value)
     assert readiness["Recorded Return/Refund Quantity Rate"].eq("N/A").sum() == 1
-    assert any("final TA" in caption.value and "not lifetime" in caption.value for caption in app.caption)
+    assert any("historical validation accepted" in caption.value and "not lifetime" in caption.value for caption in app.caption)
     comparison = next(t.value for t in app.dataframe if "Rank Change" in t.value)
     pd.testing.assert_frame_equal(comparison, sensitivity)
     result = {"status": "passed", "ranked_skus": len(displayed), "readiness_rows": len(readiness),

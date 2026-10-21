@@ -1,0 +1,27 @@
+{
+  "data_type": "SYNTHETIC ONLY \u2014 not empirical Chapter 4 results",
+  "skus": 8,
+  "rates_percent": [
+    5.0,
+    10.0,
+    15.0,
+    20.0,
+    25.0,
+    30.0,
+    35.0,
+    40.0
+  ],
+  "expected_cost_normalization": "(40-rate)/35",
+  "expected_score": "(0.5+0.5+normalized_return_rate)/3",
+  "checks": [
+    "connected pipeline",
+    "independent hand formula",
+    "SQLite persisted outputs",
+    "8 audit events",
+    "repeat stock refresh",
+    "production page AppTest",
+    "actual CSV download payload"
+  ],
+  "status": "passed",
+  "scope": "Local staging component flow; merged frontend/demo acceptance still required"
+}

@@ -175,7 +175,7 @@ def test_three_criterion_connected_pipeline_and_frontend(tmp_path):
     assert not app.exception
     shown = next(table.value for table in app.dataframe if "SKU Priority Score" in table.value)
     pd.testing.assert_frame_equal(shown, result["mca_results"], check_dtype=False)
-    assert any("final TA" in x.value for x in app.caption)
+    assert any("historical validation accepted" in x.value for x in app.caption)
 
 
 def test_assessment_dates_cannot_disagree_or_use_a_later_forecast():

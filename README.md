@@ -1,7 +1,7 @@
 # TESPH-DSS
 Prescriptive Analytics Decision-Support System for Shopee Sales Performance and Inventory Replenishment Recommendations of TheEverythingShopPH.
 
-Work-in-progress backup: equal-third MCA baseline weights and reporting the limited historical baseline are approved. Expanded-period validation and merged-build acceptance remain pending; this is not a handoff. Start with the [current documentation index](docs/README.md), [draft candidate notes](docs/corrected_candidate_integration_handoff.md), and [setup instructions](docs/integration_candidate_setup.md).
+TA historical validation is accepted. Equal-third MCA weights remain active; the eight-SKU synthetic staging check passed. This is an integration candidate, not a deployed release. Start with [documentation](docs/README.md), [technical handoff](docs/corrected_candidate_integration_handoff.md), and [setup](docs/integration_candidate_setup.md).
 
 ## Week 2 Analytics
 

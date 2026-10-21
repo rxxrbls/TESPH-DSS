@@ -1,8 +1,8 @@
 {
-  "snapshot_id": "3c3017d02301acbf381af67213f18517302762b312779aca81c140a8b89cf66c",
-  "source_file_count": 215,
-  "archive_sha256": "81e676519a8045ab58a962c063d0c112e213dcd94b0ff1985757437b43d01236",
-  "archive_bytes": 2588613,
+  "snapshot_id": "2972a8dca9c938d01722b1260e0eea0e11bcb2c067f0a33db32e9bb4c9eb397a",
+  "source_file_count": 236,
+  "archive_sha256": "a05d78df6dad67981cb40dc03f8df5d1ceec437b3ca0ba42b0a65b811c8db10f",
+  "archive_bytes": 2580489,
   "archive": "C:\\B\\College\\4TH YEAR\\CAPSTONE\\TESPH-DSS\\.artifacts\\integration_candidate\\tesph_sku_corrected_readiness_candidate.zip",
   "checks": "ZIP integrity and every source checksum verified"
 }
