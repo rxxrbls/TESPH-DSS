@@ -57,7 +57,12 @@ def build_active_mapping(transactions: pd.DataFrame, inventory: pd.DataFrame | N
             if not values.isin(["true", "false", "1", "0"]).all():
                 raise ValueError(f"Inventory {flag} must explicitly contain true/false or 1/0")
             inventory.loc[~values.isin(["true", "1"]), "Reason"] = f"Inactive catalog {flag}"
-    accepted = inventory.loc[inventory["Reason"].eq("Eligible current catalog match"), ["product_key", "SKU", "Stock As-Of Date"]]
+    accepted_columns = ["product_key", "SKU", "Stock As-Of Date"]
+    if "Supplier Lead Time" in inventory.columns:
+        accepted_columns.append("Supplier Lead Time")
+    accepted = inventory.loc[
+        inventory["Reason"].eq("Eligible current catalog match"), accepted_columns
+    ]
     mapping = base.merge(accepted, on="product_key", how="left", validate="one_to_one")
     mapping["active"] = mapping["SKU"].notna()
     active_categories = set(mapping.loc[mapping["active"], "Category"])

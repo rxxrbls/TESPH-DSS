@@ -73,27 +73,25 @@ class DerivedMetricsCalculator:
 
     @staticmethod
     def calculate_stock_out_frequency(stock_history_df: pd.DataFrame) -> pd.DataFrame:
-        """Count positive-to-empty stock transitions per product.
+        """Approved percentage of valid observed product-days at net stock <= 0.
 
-        Consecutive empty observations belong to one stock-out event.
+        Compatibility input Current Stock must represent net sellable stock.
+        The caller supplies the observation period by filtering this frame.
         """
         required = {"product_key", "Stock As-Of Date", "Current Stock"}
         missing = required.difference(stock_history_df.columns)
         if missing:
             raise ValueError(f"Missing stock-history columns: {sorted(missing)}")
-        stock = stock_history_df.copy()
-        stock["Stock As-Of Date"] = pd.to_datetime(stock["Stock As-Of Date"], errors="raise")
-        stock["Current Stock"] = pd.to_numeric(stock["Current Stock"], errors="raise")
-        stock = stock.sort_values(["product_key", "Stock As-Of Date"])
-        previous_stock = stock.groupby("product_key")["Current Stock"].shift(1)
-        stock["stock_out_event"] = ((previous_stock > 0) & (stock["Current Stock"] <= 0)).astype(int)
-        return (
-            stock.groupby("product_key", as_index=False)["stock_out_event"]
-            .sum()
-            .rename(columns={"stock_out_event": "stock_out_frequency"})
-        )
+        from mca_inputs import calculate_stock_out_frequency
+        if stock_history_df.empty:
+            return pd.DataFrame(columns=["product_key", "stock_out_frequency"])
+        dates = pd.to_datetime(stock_history_df["Stock As-Of Date"], errors="raise")
+        return calculate_stock_out_frequency(
+            stock_history_df, period_start=dates.min(), period_end=dates.max(),
+            identifier="product_key", date="Stock As-Of Date", stock="Current Stock",
+        ).rename(columns={"Stock-Out Frequency": "stock_out_frequency"})[["product_key", "stock_out_frequency"]]
 
     def calculate_stockout_frequency(self) -> pd.DataFrame:
-        """Legacy instance API retained until its input contract is approved."""
-        raise NotImplementedError("Stock-Out Frequency formula is pending TA approval.")
+        """Orders alone cannot provide daily stock history."""
+        raise NotImplementedError("Supply daily net-sellable stock history to calculate_stock_out_frequency.")
 

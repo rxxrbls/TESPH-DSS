@@ -173,6 +173,13 @@ def inject_global_styles() -> None:
           .topbar-right { padding:0 .75rem 0 .25rem; }
           div.st-key-topbar_logout { right:.75rem; }
         }
+        @media (max-width:600px) {
+          .tesph-topbar { grid-template-columns:minmax(0, 1fr) auto; }
+          .topbar-brand, .topbar-right > :not(.topbar-logout-slot) { display:none; }
+          .topbar-page { padding:0 .5rem 0 3rem; }
+          .topbar-title { font-size:.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .topbar-breadcrumb { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        }
         </style>
         """,
         unsafe_allow_html=True,

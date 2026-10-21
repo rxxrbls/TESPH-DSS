@@ -1,0 +1,1010 @@
+[
+  {
+    "file": "raw_data\\2020\\Order.all.APRIL2020.xlsx",
+    "rows": 0,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.AUG2020.xlsx",
+    "rows": 1562,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.DEC2020.xlsx",
+    "rows": 824,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.FEB2020.xlsx",
+    "rows": 0,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.JAN2020.xlsx",
+    "rows": 0,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.JULY2020.xlsx",
+    "rows": 478,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.JUNE2020.xlsx",
+    "rows": 184,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.MARCH2020.xlsx",
+    "rows": 0,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.MAY2020.xlsx",
+    "rows": 34,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.NOV2020.xlsx",
+    "rows": 360,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.OCT2020.xlsx",
+    "rows": 292,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2020\\Order.all.SEPT2020.xlsx",
+    "rows": 393,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.APRIL2021.xlsx",
+    "rows": 4091,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.AUG2021_part_1_of_2.xlsx",
+    "rows": 9460,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.AUG2021_part_2_of_2.xlsx",
+    "rows": 6403,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.DEC2021_part_1_of_2.xlsx",
+    "rows": 8712,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.DEC2021_part_2_of_2.xlsx",
+    "rows": 3368,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.FEB2021.xlsx",
+    "rows": 2140,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.JAN2021.xlsx",
+    "rows": 1346,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.JULY2021_part_1_of_2.xlsx",
+    "rows": 8779,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.JULY2021_part_2_of_2.xlsx",
+    "rows": 5159,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.JUNE2021.xlsx",
+    "rows": 7663,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.MARCH2021.xlsx",
+    "rows": 4285,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.MAY2021_part_1_of_2.xlsx",
+    "rows": 7445,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.MAY2021_part_2_of_2.xlsx",
+    "rows": 1483,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.NOV2021_part_1_of_2.xlsx",
+    "rows": 8294,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.NOV2021_part_2_of_2.xlsx",
+    "rows": 3501,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.OCT2021_part_1_of_2.xlsx",
+    "rows": 9898,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.OCT2021_part_2_of_2.xlsx",
+    "rows": 2136,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.SEPT2021_part_1_of_2.xlsx",
+    "rows": 9569,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2021\\Order.all.SEPT2021_part_2_of_2.xlsx",
+    "rows": 6404,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.APRIL2022.xlsx",
+    "rows": 5745,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 13
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.AUG2022.xlsx",
+    "rows": 7334,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 3
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.DEC2022.xlsx",
+    "rows": 5771,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 4
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.FEB2022.xlsx",
+    "rows": 7275,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.JAN2022_part_1_of_2.xlsx",
+    "rows": 9839,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.JAN2022_part_2_of_2.xlsx",
+    "rows": 1892,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.JULY2022.xlsx",
+    "rows": 5543,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 5
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.JUNE2022.xlsx",
+    "rows": 4512,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 3
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.MARCH2022.xlsx",
+    "rows": 7919,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 11
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.MAY2022.xlsx",
+    "rows": 5205,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 2
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.NOV2022.xlsx",
+    "rows": 5899,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 8
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.OCT2022.xlsx",
+    "rows": 5523,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 8
+    }
+  },
+  {
+    "file": "raw_data\\2022\\Order.all.SEPT2022.xlsx",
+    "rows": 7326,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.APRIL2023.xlsx",
+    "rows": 1612,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 9
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.AUG2023.xlsx",
+    "rows": 1316,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 2
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.DEC2023.xlsx",
+    "rows": 2238,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 5
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.FEB2023.xlsx",
+    "rows": 2129,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 5
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.JAN2023.xlsx",
+    "rows": 2549,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 4
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.JULY2023.xlsx",
+    "rows": 1741,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 0
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.JUNE2023.xlsx",
+    "rows": 1397,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 2
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.MARCH2023.xlsx",
+    "rows": 2027,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 16
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.MAY2023.xlsx",
+    "rows": 1655,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 4
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.NOV2023.xlsx",
+    "rows": 1740,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 7
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.OCT2023.xlsx",
+    "rows": 1276,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 3
+    }
+  },
+  {
+    "file": "raw_data\\2023\\Order.all.SEPT2023.xlsx",
+    "rows": 1096,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 7
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.APRIL2024.xlsx",
+    "rows": 993,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 21
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.AUG2024.xlsx",
+    "rows": 612,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 24
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.DEC2024.xlsx",
+    "rows": 589,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 24
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.FEB2024.xlsx",
+    "rows": 1279,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 23
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.JAN2024.xlsx",
+    "rows": 1457,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 5
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.JULY2024.xlsx",
+    "rows": 535,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 18
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.JUNE2024.xlsx",
+    "rows": 732,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 12
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.MARCH2024.xlsx",
+    "rows": 984,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 15
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.MAY2024.xlsx",
+    "rows": 899,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 10
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.NOV2024.xlsx",
+    "rows": 356,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 23
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.OCT2024.xlsx",
+    "rows": 456,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 45
+    }
+  },
+  {
+    "file": "raw_data\\2024\\Order.all.SEPT2024.xlsx",
+    "rows": 551,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 28
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.APRIL2025.xlsx",
+    "rows": 262,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 89
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.AUG2025.xlsx",
+    "rows": 141,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 36
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.DEC2025.xlsx",
+    "rows": 24,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 8
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.FEB2025.xlsx",
+    "rows": 224,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 34
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.JAN2025.xlsx",
+    "rows": 219,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 18
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.JULY2025.xlsx",
+    "rows": 103,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 21
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.JUNE2025.xlsx",
+    "rows": 58,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 24
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.MARCH2025.xlsx",
+    "rows": 282,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 47
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.MAY2025.xlsx",
+    "rows": 207,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 69
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.NOV2025.xlsx",
+    "rows": 65,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 11
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.OCT2025.xlsx",
+    "rows": 10,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 4
+    }
+  },
+  {
+    "file": "raw_data\\2025\\Order.all.SEPT2025.xlsx",
+    "rows": 37,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 9
+    }
+  },
+  {
+    "file": "raw_data\\2026\\Order.all.APRIL2026.xlsx",
+    "rows": 86,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 15
+    }
+  },
+  {
+    "file": "raw_data\\2026\\Order.all.FEB2026.xlsx",
+    "rows": 123,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 39
+    }
+  },
+  {
+    "file": "raw_data\\2026\\Order.all.JAN2026.xlsx",
+    "rows": 71,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 26
+    }
+  },
+  {
+    "file": "raw_data\\2026\\Order.all.MARCH2026.xlsx",
+    "rows": 28,
+    "identifier_columns": [
+      "Parent SKU Reference No.",
+      "SKU Reference No."
+    ],
+    "nonblank": {
+      "Parent SKU Reference No.": 3,
+      "SKU Reference No.": 14
+    }
+  }
+]

@@ -1,0 +1,36 @@
+{
+  "original_workbooks": 84,
+  "raw_rows": 226205,
+  "prepared_rows": 226203,
+  "raw_blank_sku_rows": 225372,
+  "prepared_blank_sku_rows": 225370,
+  "unmatched_prepared_identities": 0,
+  "prepared_sku_not_found_in_original_identity": 100,
+  "confirmed_nonblank_to_blank": 0,
+  "blank_prepared_with_some_nonblank_original_identity": 0,
+  "original_identifier_columns": [
+    "Parent SKU Reference No.",
+    "SKU Reference No."
+  ],
+  "source_file_sets_match": true,
+  "original_nonblank_parent_sku_rows": 3,
+  "stock_rows": 1980,
+  "stock_missing_sku": 1712,
+  "catalog_eligibility_reasons": {
+    "Missing source SKU": 1712,
+    "Missing or duplicate product key": 111,
+    "Reused SKU: stock pool unresolved": 90,
+    "Eligible current catalog match": 65,
+    "Historical/current SKU conflict": 2
+  },
+  "safe_blank_reference_fills": 0,
+  "products_with_safe_reference_fills": 0,
+  "accepted_catalog_skus_before": 65,
+  "accepted_catalog_skus_after": 65,
+  "accepted_mapping_unchanged": true,
+  "return_lines_in_accepted_mapping_before": 1,
+  "return_lines_in_accepted_mapping_after": 1,
+  "source_transaction_sha256": "66b3aa57d6bb4352e04399370ba602fd368e378994dbf6fe38d343480502917e",
+  "source_unchanged": true,
+  "working_files_unchanged": true
+}

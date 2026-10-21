@@ -18,7 +18,7 @@ def _table(frame: pd.DataFrame | None, *, limit: int | None = None) -> bool:
 
 guard_protected_page()
 render_page_shell("Sales & Product Analytics", "Analyze · Descriptive")
-ensure_derived_outputs_for_active_dataset()
+ensure_derived_outputs_for_active_dataset(include_forecast=False)
 
 if get_data_status() is not DataStatus.DATA_READY:
     empty_state("No data available yet", "Upload and process a Shopee transaction file to view sales and product analytics.", "Data")

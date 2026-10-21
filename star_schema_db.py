@@ -365,3 +365,33 @@ def read_runtime_snapshot(db_path: Path = DEFAULT_DB_PATH) -> tuple[dict[str, pd
         validate_final_schema(star_schema[table_name].columns, table_name)
     validate_final_schema(prepared.columns, "prepared_transactions")
     return star_schema, prepared
+
+
+def read_runtime_star_schema(db_path: Path = DEFAULT_DB_PATH) -> dict[str, pd.DataFrame]:
+    """Read the materialized Star Schema without reloading active transactions.
+
+    Pages that need a dimension after restoring a fresh Streamlit session can
+    hydrate the schema lazily. Keeping this separate from
+    ``read_runtime_snapshot`` avoids reading the large prepared transaction
+    table a second time when the session already has it.
+    """
+    path = Path(db_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Runtime snapshot not found: {path}")
+
+    with closing(sqlite3.connect(path)) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        missing = [table_name for table_name in LOAD_ORDER if table_name not in tables]
+        if missing:
+            raise ValueError(f"Runtime database is missing star tables: {missing}")
+        star_schema = {
+            table_name: pd.read_sql_query(f"SELECT * FROM {_quote(table_name)}", conn)
+            for table_name in LOAD_ORDER
+        }
+
+    for table_name in LOAD_ORDER:
+        validate_final_schema(star_schema[table_name].columns, table_name)
+    return star_schema

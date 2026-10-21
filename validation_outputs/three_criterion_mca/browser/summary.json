@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "checks": [
+    "Invalid login rejected",
+    "Login and actual-data dashboard",
+    "Browser metric download matches independent actual-data audit",
+    "Forecast metrics and no-demand explanation visible",
+    "Invalid upload reported without losing active data",
+    "Real historical XLSX repeat adds zero rows",
+    "Actual stock workbook connects derived outputs",
+    "Stock-Out Risk renders connected data",
+    "Five-criterion MCA CSV matches independent actual-data audit",
+    "Product Prioritization renders connected data",
+    "Replenishment Recommendations renders connected data",
+    "Actual return/refund ZIP accepted with explicit coverage",
+    "Repeat return upload appends a fresh review without duplicating quantities",
+    "Download MCA readiness audit matches independent three-criterion backend",
+    "Download MCA rankings matches independent three-criterion backend",
+    "Download weight comparison matches independent three-criterion backend",
+    "Repeat sales upload triggers persisted request re-evaluation",
+    "Mobile header fits; collapsed-sidebar viewport captured",
+    "Browser refresh restores login gate"
+  ],
+  "browser_errors": [],
+  "scope": "Isolated app.py process, actual datasets, local QA credentials; desktop Edge headless and mobile viewport screenshot"
+}

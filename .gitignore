@@ -240,3 +240,7 @@ runtime_test_tmp/
 # Local, reconciled Streamlit authority. The immutable final_outputs handoff
 # remains versioned separately and is never written during normal uploads.
 runtime_data/
+.qa_browser_entry.py
+
+# Superseded internal QA tracking sheets remain local.
+docs/member2_batch*.csv

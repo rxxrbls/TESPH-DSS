@@ -7,6 +7,7 @@ import pandas as pd
 
 from active_inventory import build_active_mapping
 from analytics_calculations import prepare_transactions
+from mca_inputs import calculate_profit_margin, calculate_return_rate, measurement_period
 from methodology_config import (
     FORECAST_HORIZON,
     MCA_CRITERIA,
@@ -30,6 +31,7 @@ def build_sku_mapping_from_stock_upload(
     *,
     stock_as_of: str | pd.Timestamp,
     as_of: str | pd.Timestamp | None = None,
+    max_stock_age_days: int = REPLENISHMENT_CONFIG.max_stock_age_days,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply the existing fresh, exact, unique catalog rule to an uploaded snapshot."""
 
@@ -37,7 +39,12 @@ def build_sku_mapping_from_stock_upload(
     missing = sorted(required - set(inventory_crosswalk.columns))
     if missing:
         raise ValueError("Current-stock crosswalk is missing: " + ", ".join(missing))
-    source = inventory_crosswalk[["product_key", "SKU", "Stock"]].copy()
+    source_columns = ["product_key", "SKU", "Stock"]
+    if "Supplier Lead Time" in inventory_crosswalk.columns:
+        source_columns.append("Supplier Lead Time")
+    if "Supplier Lead Time Source" in inventory_crosswalk.columns:
+        source_columns.append("Supplier Lead Time Source")
+    source = inventory_crosswalk[source_columns].copy()
     if {
         "crosswalk_product_key",
         "match_status",
@@ -61,7 +68,7 @@ def build_sku_mapping_from_stock_upload(
         transactions,
         inventory=source,
         as_of=as_of,
-        max_age_days=REPLENISHMENT_CONFIG.max_stock_age_days,
+        max_age_days=max_stock_age_days,
     )
 
 
@@ -106,6 +113,7 @@ def _safe_inventory(
     inventory_crosswalk: pd.DataFrame,
     *,
     as_of: str | pd.Timestamp | None,
+    max_stock_age_days: int,
 ) -> pd.DataFrame:
     required = {
         "product_key", "SKU", "Stock", "stock_as_of", "match_status",
@@ -117,6 +125,15 @@ def _safe_inventory(
     stock = inventory_crosswalk.copy()
     stock["stock_as_of"] = pd.to_datetime(stock["stock_as_of"], errors="coerce")
     stock["Stock"] = pd.to_numeric(stock["Stock"], errors="coerce")
+    if "Supplier Lead Time" in stock.columns:
+        original_lead_time = stock["Supplier Lead Time"]
+        parsed_lead_time = pd.to_numeric(original_lead_time, errors="coerce")
+        invalid_lead_time = original_lead_time.notna() & (
+            parsed_lead_time.isna() | parsed_lead_time.le(0)
+        )
+        if invalid_lead_time.any():
+            raise ValueError("Supplier Lead Time must be a positive number of days")
+        stock["Supplier Lead Time"] = parsed_lead_time
     stock["mapping_review_required"] = stock["mapping_review_required"].astype("boolean").fillna(True)
     stock["stock_valid"] = stock["stock_valid"].astype("boolean").fillna(False)
     if "crosswalk_product_key" in stock:
@@ -139,8 +156,13 @@ def _safe_inventory(
     )
     today = pd.Timestamp(as_of).normalize() if as_of is not None else pd.Timestamp.today().normalize()
     age = (today - stock["stock_as_of"].dt.normalize()).dt.days
-    eligible &= age.between(0, REPLENISHMENT_CONFIG.max_stock_age_days)
-    safe = stock.loc[eligible, ["product_key", "SKU", "Stock"]].copy()
+    eligible &= age.between(0, max_stock_age_days)
+    safe_columns = ["product_key", "SKU", "Stock"]
+    if "Supplier Lead Time" in stock.columns:
+        safe_columns.append("Supplier Lead Time")
+    if "Supplier Lead Time Source" in stock.columns:
+        safe_columns.append("Supplier Lead Time Source")
+    safe = stock.loc[eligible, safe_columns].copy()
     if safe["product_key"].duplicated().any() or safe["SKU"].duplicated().any():
         raise ValueError("Current-stock matches must be unique by product key and SKU")
     safe["Stock"] = safe["Stock"].astype(float)
@@ -155,17 +177,46 @@ def run_prescriptive_pipeline(
     *,
     as_of: str | pd.Timestamp | None = None,
     forecast_horizon_days: int = FORECAST_HORIZON,
+    max_stock_age_days: int = REPLENISHMENT_CONFIG.max_stock_age_days,
+    mca_financial_lines: pd.DataFrame | None = None,
+    mca_stock_history: pd.DataFrame | None = None,
+    mca_period_start: str | pd.Timestamp | None = None,
+    mca_period_end: str | pd.Timestamp | None = None,
+    mca_use_lead_time_fallback: bool = False,
+    mca_return_snapshot: pd.DataFrame | None = None,
+    mca_coverage=None,
+    mca_weight_scenario: str = "equal_thirds",
 ) -> dict[str, pd.DataFrame]:
-    """Produce one risk, MCA, and replenishment result from the current upload."""
+    """Produce risk, five-criterion MCA, and replenishment outputs.
 
+    mca_stock_history is retained for caller compatibility but is not used.
+    Historical stock frequency is no longer an MCA criterion.
+    """
+
+    if mca_coverage is not None:
+        mca_coverage.validate()
+        for supplied, configured in ((mca_period_start, mca_coverage.order_start),
+                                     (mca_period_end, mca_coverage.order_end)):
+            if supplied is not None and pd.Timestamp(supplied).normalize() != pd.Timestamp(configured).normalize():
+                raise ValueError("MCA measurement dates must match the return/refund coverage configuration")
+        mca_period_start, mca_period_end = mca_coverage.order_start, mca_coverage.order_end
     if not isinstance(forecast_horizon_days, int) or isinstance(forecast_horizon_days, bool) or forecast_horizon_days < 1:
         raise ValueError("forecast_horizon_days must be a positive integer")
     forecast = _forecast_by_sku(forecast_results.get("forecast_output", pd.DataFrame()), forecast_horizon_days)
-    safe_stock = _safe_inventory(inventory_crosswalk, as_of=as_of)
+    if isinstance(max_stock_age_days, bool) or not isinstance(max_stock_age_days, int) or max_stock_age_days < 1:
+        raise ValueError("max_stock_age_days must be a positive integer")
+    safe_stock = _safe_inventory(
+        inventory_crosswalk, as_of=as_of, max_stock_age_days=max_stock_age_days
+    )
     stock_for_risk = safe_stock.rename(columns={"Stock": "Current Stock"})
+    risk_inventory_columns = ["SKU", "Current Stock"]
+    if "Supplier Lead Time" in stock_for_risk.columns:
+        risk_inventory_columns.append("Supplier Lead Time")
+    if "Supplier Lead Time Source" in stock_for_risk.columns:
+        risk_inventory_columns.append("Supplier Lead Time Source")
     risk = calculate_stock_out_risk(
         forecast[["SKU", "Forecast"]],
-        stock_for_risk[["SKU", "Current Stock"]],
+        stock_for_risk[risk_inventory_columns],
         item_columns=["SKU"],
         forecast_horizon_days=forecast_horizon_days,
         thresholds=STOCK_RISK_THRESHOLDS,
@@ -177,11 +228,8 @@ def run_prescriptive_pipeline(
     prepared = prepare_transactions(transactions)
     mapped = safe_stock[["product_key", "SKU"]]
     sales = analytics_results.get("sales_velocity", pd.DataFrame()).copy()
-    performance = analytics_results.get("product_performance", pd.DataFrame()).copy()
     if not {"Product Key", "Sales Velocity"}.issubset(sales.columns):
         raise ValueError("Analytics output is missing product-level sales velocity")
-    if not {"Product Key", "Gross Revenue", "Gross Demand", "Returned Quantity"}.issubset(performance.columns):
-        raise ValueError("Analytics output is missing product-level revenue or return measures")
 
     sales = sales[["Product Key", "Sales Velocity"]].merge(
         mapped, left_on="Product Key", right_on="product_key", how="inner", validate="many_to_one"
@@ -189,30 +237,83 @@ def run_prescriptive_pipeline(
     sales_by_sku = sales.groupby("SKU", as_index=False, sort=True)["Sales Velocity"].sum(
         min_count=1
     )
-    financial = performance[["Product Key", "Gross Revenue", "Gross Demand", "Returned Quantity"]].merge(
-        mapped, left_on="Product Key", right_on="product_key", how="inner", validate="many_to_one"
-    )
-    financial_by_sku = financial.groupby("SKU", as_index=False, sort=True)[
-        ["Gross Revenue", "Gross Demand", "Returned Quantity"]
-    ].sum(min_count=1)
-    financial_by_sku["Return Rate"] = np.divide(
-        financial_by_sku["Returned Quantity"],
-        financial_by_sku["Gross Demand"],
-        out=np.full(len(financial_by_sku), np.nan, dtype=float),
-        where=financial_by_sku["Gross Demand"].to_numpy(dtype=float) > 0,
-    )
+    financial_by_sku = forecast[["SKU"]].copy()
+    financial_by_sku["Return Rate"] = np.nan
+    has_period = mca_period_start is not None and mca_period_end is not None
+    if (mca_period_start is None) != (mca_period_end is None):
+        raise ValueError("Supply both MCA measurement period dates")
+    if not isinstance(mca_use_lead_time_fallback, bool):
+        raise ValueError("mca_use_lead_time_fallback must be an explicit boolean")
+    if has_period:
+        start, end = measurement_period(mca_period_start, mca_period_end)
+        period_sales = prepared.loc[prepared["Time"].dt.normalize().between(start, end)].merge(
+            mapped, left_on="Product Key", right_on="product_key", how="inner", suffixes=(" Source", ""), validate="many_to_one"
+        )
+        units = period_sales.groupby("SKU")[["Gross Demand", "Demand Returned Quantity"]].sum(min_count=1)
+        rates = calculate_return_rate(units["Demand Returned Quantity"], units["Gross Demand"])
+        financial_by_sku["Return Rate"] = financial_by_sku["SKU"].map(rates)
 
     criteria = (
         risk.merge(sales_by_sku, on="SKU", how="left", validate="one_to_one")
         .merge(financial_by_sku, on="SKU", how="left", validate="one_to_one")
-        .rename(columns={"Risk Index": "Projected Stock-Out Risk", "Forecast Demand": "Forecasted Demand"})
+        .rename(columns={"Forecast Demand": "Forecasted Demand"})
     )
-    criteria["Supplier Lead Time"] = REPLENISHMENT_CONFIG.supplier_lead_time_days
-    criteria = criteria.dropna(subset=list(MCA_CRITERIA))
-    mca = calculate_mca_scores(criteria[["SKU", *MCA_CRITERIA]], identifier_columns=["SKU"])
+    # Replenishment's approved fallback is not silently promoted to an MCA fact.
+    if not mca_use_lead_time_fallback:
+        criteria.loc[criteria["Supplier Lead Time Source"].ne("Per-SKU Supplier Lead Time"), "Supplier Lead Time"] = np.nan
+    criteria["Profit Margin"] = np.nan
+    criteria["Profit Margin Status"] = "Unavailable: reconciled net-sales/cost ledger and measurement period required"
+    if has_period and mca_financial_lines is not None:
+        margins = calculate_profit_margin(mca_financial_lines, period_start=start, period_end=end)
+        criteria = criteria.drop(columns=["Profit Margin", "Profit Margin Status"]).merge(margins, on="SKU", how="left", validate="one_to_one")
+    criteria["Profit Margin Status"] = criteria["Profit Margin Status"].fillna(
+        "Unavailable: no source rows for this SKU in the measurement period"
+    )
+    criteria["MCA Period Start"] = start if has_period else pd.NaT
+    criteria["MCA Period End"] = end if has_period else pd.NaT
+    active_criteria = MCA_CRITERIA
+    request_review = pd.DataFrame()
+    sensitivity = pd.DataFrame()
+    if mca_coverage is not None:
+        from three_criterion_mca import CRITERIA, REQUIRED, evaluate_requests, rank_scenarios
+        mca_coverage.validate()
+        assessment_end = pd.Timestamp(mca_coverage.order_end).normalize()
+        if prepared["Time"].dt.normalize().max() > assessment_end:
+            raise ValueError("Three-criterion historical assessment requires sales/analytics/forecasts restricted to its order-date endpoint")
+        forecast_start = pd.to_datetime(forecast_results["forecast_output"]["Time"]).min().normalize()
+        if forecast_start != assessment_end + pd.Timedelta(days=1):
+            raise ValueError("Forecast horizon must start the day after the MCA assessment endpoint")
+        snapshot = mca_return_snapshot if mca_return_snapshot is not None else pd.DataFrame(columns=REQUIRED)
+        return_audit, request_review = evaluate_requests(transactions, snapshot, mapped, mca_coverage)
+        criteria = criteria.merge(return_audit.drop(columns="product_key"), on="SKU", how="left", validate="one_to_one")
+        active_criteria = CRITERIA
+    valid = criteria[list(active_criteria)].apply(pd.to_numeric, errors="coerce").apply(np.isfinite)
+    criteria["MCA Eligible"] = valid.all(axis=1)
+    criteria["MCA Status"] = [
+        "Ready" if complete else "Unavailable: " + ", ".join(valid.columns[~row])
+        for complete, (_, row) in zip(criteria["MCA Eligible"], valid.iterrows())
+    ]
+    mca_audit = criteria[["SKU", "Product", "Category", *active_criteria, "Supplier Lead Time Source",
+                          "MCA Period Start", "MCA Period End", "Profit Margin Status",
+                          "MCA Eligible", "MCA Status"]].copy()
+    if mca_coverage is not None:
+        scenarios, sensitivity, diagnostic = rank_scenarios(criteria)
+        if mca_weight_scenario not in scenarios:
+            raise ValueError("Unknown provisional MCA weight scenario")
+        mca = scenarios[mca_weight_scenario]
+        for column in ("Eligible Ordered Units", "Recorded Refunded Units", "Return Review Status"):
+            mca_audit[column] = criteria[column]
+        mca_audit["Approval Status"] = ("TA-approved equal-weight baseline; final validation pending"
+            if mca_weight_scenario == "equal_thirds" else "Sensitivity comparison only; not the approved baseline")
+        mca_audit = mca_audit.drop(columns=["Supplier Lead Time Source", "Profit Margin Status"])
+    else:
+        mca = calculate_mca_scores(
+            criteria.loc[criteria["MCA Eligible"], ["SKU", *MCA_CRITERIA]], identifier_columns=["SKU"]
+        )
 
     recommendation = risk.loc[risk["Current Stock"].notna()].merge(
-        mca, on="SKU", how="left", validate="one_to_one"
+        mca.drop(columns=["Supplier Lead Time"], errors="ignore"),
+        on="SKU", how="left", validate="one_to_one"
     )
     recommendation["Safety Stock"] = recommendation["Forecast Demand"].map(
         lambda demand: calculate_safety_stock(
@@ -220,23 +321,27 @@ def run_prescriptive_pipeline(
             safety_stock_days=REPLENISHMENT_CONFIG.safety_stock_days,
         )
     )
-    recommendation["Target Stock Level"] = recommendation["Forecast Demand"].map(
-        lambda demand: calculate_target_stock_level(
+    recommendation["Target Stock Level"] = [
+        calculate_target_stock_level(
             demand,
             forecast_horizon_days=forecast_horizon_days,
-            lead_time_days=REPLENISHMENT_CONFIG.supplier_lead_time_days,
+            lead_time_days=int(lead_time),
             review_period_days=REPLENISHMENT_CONFIG.review_period_days,
             safety_stock_days=REPLENISHMENT_CONFIG.safety_stock_days,
         )
-    )
+        for demand, lead_time in zip(
+            recommendation["Forecast Demand"], recommendation["Supplier Lead Time"]
+        )
+    ]
     recommendation["Recommended Quantity"] = [
         calculate_replenishment_quantity(target, stock)
         for target, stock in zip(recommendation["Target Stock Level"], recommendation["Current Stock"])
     ]
     recommendation["Recommendation"] = [
-        recommendation_action(quantity, risk_level)
-        for quantity, risk_level in zip(
-            recommendation["Recommended Quantity"], recommendation["Stock-Out Risk"]
+        recommendation_action(quantity, risk_level, mca_level)
+        for quantity, risk_level, mca_level in zip(
+            recommendation["Recommended Quantity"], recommendation["Stock-Out Risk"],
+            recommendation["Priority Level"],
         )
     ]
     recommendation["Recommendation Priority"] = [
@@ -254,8 +359,9 @@ def run_prescriptive_pipeline(
             f"{row['Recommendation']}: {int(row['Recommended Quantity'])} units; "
             f"current stock {row['Current Stock']:g}, target {int(row['Target Stock Level'])} "
                 f"({forecast_horizon_days}-day forecast rate extended across "
-                f"{REPLENISHMENT_CONFIG.supplier_lead_time_days + REPLENISHMENT_CONFIG.review_period_days} "
-                f"lead/review days, plus {REPLENISHMENT_CONFIG.safety_stock_days} "
+                f"{row['Supplier Lead Time']:g} lead + "
+                f"{REPLENISHMENT_CONFIG.review_period_days} review days, plus "
+                f"{REPLENISHMENT_CONFIG.safety_stock_days} "
                 f"safety-stock day(s), or {int(row['Safety Stock'])} units). "
             f"Risk {row['Stock-Out Risk']} ("
             + (
@@ -276,5 +382,8 @@ def run_prescriptive_pipeline(
     return {
         "risk_results": risk,
         "mca_results": mca,
+        "mca_audit": mca_audit,
         "recommendation_results": recommendation,
+        "return_request_review": request_review,
+        "mca_sensitivity": sensitivity,
     }

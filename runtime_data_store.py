@@ -125,12 +125,16 @@ def _fingerprints(frame: pd.DataFrame, columns: tuple[str, ...] | list[str]) -> 
     missing = [column for column in columns if column not in frame]
     if missing:
         raise ValueError("Fingerprint fields are missing: " + ", ".join(missing))
-    normalized = [_normalized_column(frame[column], column) for column in columns]
-    # ``itertuples`` avoids pandas' slow axis=1 aggregation while preserving
-    # every normalized field in the cryptographic payload.
-    payloads = ("\x1f".join(map(str, row)) for row in zip(*(series.tolist() for series in normalized)))
+    # Feed the exact same delimiter-separated payload a column at a time. This
+    # avoids holding millions of Python strings from every column simultaneously.
+    digests = [sha256() for _ in range(len(frame))]
+    for position, column in enumerate(columns):
+        separator = "\x1f" if position else ""
+        values = _normalized_column(frame[column], column).tolist()
+        for digest, value in zip(digests, values):
+            digest.update((separator + str(value)).encode("utf-8"))
     return pd.Series(
-        (sha256(payload.encode("utf-8")).hexdigest() for payload in payloads),
+        (digest.hexdigest() for digest in digests),
         index=frame.index,
         dtype="string",
     )
@@ -188,8 +192,10 @@ def _read_runtime_database(db_path: Path) -> RuntimeState | None:
         required = {"prepared_transactions", "ingestion_batches", "runtime_metadata"}
         if not required.issubset(tables):
             raise RuntimeError("Runtime database is missing active transaction tables")
+        # Chunk fetching avoids SQLite retaining a Python tuple for every row
+        # while pandas also materializes the full transaction frame.
         transactions = _restore_prepared_dtypes(
-            pd.read_sql_query("SELECT * FROM prepared_transactions", conn)
+            pd.concat(pd.read_sql_query("SELECT * FROM prepared_transactions", conn, chunksize=10_000), ignore_index=True).infer_objects()
         )
         batches = pd.read_sql_query("SELECT * FROM ingestion_batches ORDER BY uploaded_at, batch_id", conn)
         metadata = dict(conn.execute("SELECT key, value FROM runtime_metadata"))
@@ -199,7 +205,7 @@ def _read_runtime_database(db_path: Path) -> RuntimeState | None:
     return RuntimeState(
         transactions=transactions,
         batches=batches,
-        dataset_id=metadata.get("dataset_id", _dataset_id(payload_fingerprints(transactions))),
+        dataset_id=metadata.get("dataset_id") or _dataset_id(payload_fingerprints(transactions)),
         bootstrapped_from_baseline=False,
     )
 
@@ -269,8 +275,10 @@ def reconcile_validated_upload(
         staged_identity_counts[identity_text] = 1
 
     additions = staging.iloc[accepted_positions].copy()
-    consolidated = pd.concat([active.transactions, additions], ignore_index=True)
-    consolidated_payloads = payload_fingerprints(consolidated)
+    consolidated = pd.concat([active.transactions, additions], ignore_index=True) if len(additions) else active.transactions
+    # Accepted payloads were already calculated above; concatenation changes no
+    # source values. Do not hash the entire active history a second time.
+    consolidated_payloads = pd.concat([active_payloads, staged_payloads.iloc[accepted_positions]], ignore_index=True)
     result_dataset_id = _dataset_id(consolidated_payloads)
     batch_id = "batch-" + _dataset_id(staged_payloads).removeprefix("active-")
     summary: dict[str, int | str] = {
@@ -337,4 +345,11 @@ def publish_validated_upload(
         summary = dict(result.summary)
         summary["active_rows"] = len(prepared)
         summary["star_fact_rows"] = counts["fact_sales"]
+        from mca_refresh import review_after_sales
+        try:
+            review_after_sales(prepared, db_path)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Sales saved but return/refund review is pending")
+            summary["return_review_status"] = "pending; MCA outputs unavailable until successful refresh"
         return rebuilt, prepared, summary, final_dataset_id

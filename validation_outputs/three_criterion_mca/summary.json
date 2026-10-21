@@ -1,0 +1,56 @@
+{
+  "eligible_skus": 59,
+  "excluded_skus": 1,
+  "pearson": null,
+  "spearman": null,
+  "correlation_status": "Undefined: insufficient rows or constant criterion",
+  "rank_changes": 0,
+  "group_changes": 0,
+  "max_absolute_rank_change": 0,
+  "policy_version": "three-criterion-provisional-v1",
+  "final_weights_locked": false,
+  "criterion_unique_values": {
+    "Sales Velocity": 8,
+    "Forecasted Demand": 1,
+    "Recorded Return/Refund Quantity Rate": 1
+  },
+  "criterion_minimums": {
+    "Sales Velocity": 0.0,
+    "Forecasted Demand": 0.0,
+    "Recorded Return/Refund Quantity Rate": 0.0
+  },
+  "criterion_maximums": {
+    "Sales Velocity": 6.333333333333333,
+    "Forecasted Demand": 0.0,
+    "Recorded Return/Refund Quantity Rate": 0.0
+  },
+  "coverage": {
+    "order_start": "2020-05-22",
+    "order_end": "2026-04-24",
+    "request_start": "2020-05-01",
+    "request_end": "2026-04-24",
+    "export_start": "2026-10-15",
+    "export_end": "2026-10-16",
+    "established": true,
+    "timezone": "unspecified"
+  },
+  "transaction_rows": 226203,
+  "return_request_lines": 3705,
+  "review_decisions": {
+    "Counted": 2134,
+    "Not counted": 1523,
+    "Unresolved": 48
+  },
+  "review_reasons": {
+    "Recorded Request Refunded outcome": 2134,
+    "Cancelled/rejected request": 1523,
+    "Unresolved source status/dispute": 48
+  },
+  "readiness": {
+    "Ready": 59,
+    "Unavailable: Recorded Return/Refund Quantity Rate": 1
+  },
+  "archive_sha256": "c7468d9b38805981122600e94ba4e105a3c44459aa5a17306e0082a9fb0f10ff",
+  "elapsed_seconds": 44.02014450000024,
+  "limitation": "Selected request dates through April 24 only; not lifetime returns. October export requests are not a simultaneous source update cutoff."
+}

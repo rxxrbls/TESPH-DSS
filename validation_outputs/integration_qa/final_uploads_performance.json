@@ -1,0 +1,419 @@
+{
+  "assessment_date": "2026-10-10",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.3 (tags/v3.13.3:6280bb5, Apr  8 2025, 14:47:33) [MSC v.1943 64 bit (AMD64)]",
+  "fixtures": {
+    "baseline_rows": 226203,
+    "incremental_rows": 10000,
+    "baseline_sha256": "66b3aa57d6bb4352e04399370ba602fd368e378994dbf6fe38d343480502917e"
+  },
+  "runs": [
+    {
+      "scenario": "repeat",
+      "seconds": 47.151,
+      "peak_working_set_gib": 1.653,
+      "counts": {
+        "batch_id": "batch-093b52c0d41d2fec7b59",
+        "source_filename": "actual_history.csv",
+        "staged_rows": 226203,
+        "within_upload_duplicates": 1,
+        "existing_exact_rows": 226202,
+        "new_rows": 0,
+        "possible_correction_rows": 0,
+        "ambiguous_identity_rows": 0,
+        "active_rows": 226203,
+        "star_fact_rows": 226203
+      },
+      "events": [
+        {
+          "seconds": 0.0,
+          "message": "Reading uploaded file...",
+          "peak_working_set_gib": 0.191
+        },
+        {
+          "seconds": 3.151,
+          "message": "Detecting duplicates and missing values...",
+          "peak_working_set_gib": 0.716
+        },
+        {
+          "seconds": 3.863,
+          "message": "Validating data types and financial values...",
+          "peak_working_set_gib": 0.716
+        },
+        {
+          "seconds": 5.424,
+          "message": "Building canonical transactions and star schema...",
+          "peak_working_set_gib": 0.716
+        },
+        {
+          "seconds": 25.216,
+          "message": "Load / Preparing to reconcile upload with active history...",
+          "peak_working_set_gib": 0.84
+        },
+        {
+          "seconds": 25.218,
+          "message": "Load / Reading active transaction snapshot from runtime database...",
+          "peak_working_set_gib": 0.84
+        },
+        {
+          "seconds": 29.681,
+          "message": "Load / Reconciling 226,203 staged rows against 226,203 active rows...",
+          "peak_working_set_gib": 1.074
+        },
+        {
+          "seconds": 43.958,
+          "message": "Load / Reusing the published runtime snapshot; no new authoritative rows were detected...",
+          "peak_working_set_gib": 1.175
+        },
+        {
+          "seconds": 47.12,
+          "message": "Load / Recording the validated ingestion batch without republishing the active snapshot...",
+          "peak_working_set_gib": 1.653
+        }
+      ],
+      "checks": "passed",
+      "profiled": false
+    },
+    {
+      "scenario": "repeat",
+      "seconds": 46.837,
+      "peak_working_set_gib": 1.655,
+      "counts": {
+        "batch_id": "batch-093b52c0d41d2fec7b59",
+        "source_filename": "actual_history.csv",
+        "staged_rows": 226203,
+        "within_upload_duplicates": 1,
+        "existing_exact_rows": 226202,
+        "new_rows": 0,
+        "possible_correction_rows": 0,
+        "ambiguous_identity_rows": 0,
+        "active_rows": 226203,
+        "star_fact_rows": 226203
+      },
+      "events": [
+        {
+          "seconds": 0.0,
+          "message": "Reading uploaded file...",
+          "peak_working_set_gib": 0.191
+        },
+        {
+          "seconds": 3.185,
+          "message": "Detecting duplicates and missing values...",
+          "peak_working_set_gib": 0.715
+        },
+        {
+          "seconds": 3.849,
+          "message": "Validating data types and financial values...",
+          "peak_working_set_gib": 0.715
+        },
+        {
+          "seconds": 5.539,
+          "message": "Building canonical transactions and star schema...",
+          "peak_working_set_gib": 0.715
+        },
+        {
+          "seconds": 25.067,
+          "message": "Load / Preparing to reconcile upload with active history...",
+          "peak_working_set_gib": 0.84
+        },
+        {
+          "seconds": 25.069,
+          "message": "Load / Reading active transaction snapshot from runtime database...",
+          "peak_working_set_gib": 0.84
+        },
+        {
+          "seconds": 29.553,
+          "message": "Load / Reconciling 226,203 staged rows against 226,203 active rows...",
+          "peak_working_set_gib": 1.074
+        },
+        {
+          "seconds": 43.688,
+          "message": "Load / Reusing the published runtime snapshot; no new authoritative rows were detected...",
+          "peak_working_set_gib": 1.175
+        },
+        {
+          "seconds": 46.785,
+          "message": "Load / Recording the validated ingestion batch without republishing the active snapshot...",
+          "peak_working_set_gib": 1.655
+        }
+      ],
+      "checks": "passed",
+      "profiled": false
+    },
+    {
+      "scenario": "repeat",
+      "seconds": 46.884,
+      "peak_working_set_gib": 1.652,
+      "counts": {
+        "batch_id": "batch-093b52c0d41d2fec7b59",
+        "source_filename": "actual_history.csv",
+        "staged_rows": 226203,
+        "within_upload_duplicates": 1,
+        "existing_exact_rows": 226202,
+        "new_rows": 0,
+        "possible_correction_rows": 0,
+        "ambiguous_identity_rows": 0,
+        "active_rows": 226203,
+        "star_fact_rows": 226203
+      },
+      "events": [
+        {
+          "seconds": 0.0,
+          "message": "Reading uploaded file...",
+          "peak_working_set_gib": 0.191
+        },
+        {
+          "seconds": 3.242,
+          "message": "Detecting duplicates and missing values...",
+          "peak_working_set_gib": 0.717
+        },
+        {
+          "seconds": 3.858,
+          "message": "Validating data types and financial values...",
+          "peak_working_set_gib": 0.717
+        },
+        {
+          "seconds": 5.477,
+          "message": "Building canonical transactions and star schema...",
+          "peak_working_set_gib": 0.717
+        },
+        {
+          "seconds": 24.926,
+          "message": "Load / Preparing to reconcile upload with active history...",
+          "peak_working_set_gib": 0.84
+        },
+        {
+          "seconds": 24.928,
+          "message": "Load / Reading active transaction snapshot from runtime database...",
+          "peak_working_set_gib": 0.84
+        },
+        {
+          "seconds": 29.388,
+          "message": "Load / Reconciling 226,203 staged rows against 226,203 active rows...",
+          "peak_working_set_gib": 1.073
+        },
+        {
+          "seconds": 43.731,
+          "message": "Load / Reusing the published runtime snapshot; no new authoritative rows were detected...",
+          "peak_working_set_gib": 1.176
+        },
+        {
+          "seconds": 46.834,
+          "message": "Load / Recording the validated ingestion batch without republishing the active snapshot...",
+          "peak_working_set_gib": 1.652
+        }
+      ],
+      "checks": "passed",
+      "profiled": false
+    },
+    {
+      "scenario": "incremental",
+      "seconds": 49.173,
+      "peak_working_set_gib": 1.489,
+      "counts": {
+        "batch_id": "batch-f76d66f2c401052c3101",
+        "source_filename": "actual_history.csv",
+        "staged_rows": 10000,
+        "within_upload_duplicates": 0,
+        "existing_exact_rows": 0,
+        "new_rows": 10000,
+        "possible_correction_rows": 0,
+        "ambiguous_identity_rows": 0,
+        "active_rows": 226203,
+        "star_fact_rows": 226203
+      },
+      "events": [
+        {
+          "seconds": 0.0,
+          "message": "Reading uploaded file...",
+          "peak_working_set_gib": 0.09
+        },
+        {
+          "seconds": 0.129,
+          "message": "Detecting duplicates and missing values...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 0.187,
+          "message": "Validating data types and financial values...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 0.297,
+          "message": "Building canonical transactions and star schema...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 1.32,
+          "message": "Load / Preparing to reconcile upload with active history...",
+          "peak_working_set_gib": 0.131
+        },
+        {
+          "seconds": 1.322,
+          "message": "Load / Reading active transaction snapshot from runtime database...",
+          "peak_working_set_gib": 0.131
+        },
+        {
+          "seconds": 5.536,
+          "message": "Load / Reconciling 10,000 staged rows against 216,203 active rows...",
+          "peak_working_set_gib": 0.572
+        },
+        {
+          "seconds": 12.859,
+          "message": "Load / Building star schema from 226,203 consolidated rows...",
+          "peak_working_set_gib": 0.699
+        },
+        {
+          "seconds": 34.319,
+          "message": "Load / Persisting 226,203 active rows and star schema to runtime database...",
+          "peak_working_set_gib": 0.858
+        }
+      ],
+      "checks": "passed",
+      "profiled": false
+    },
+    {
+      "scenario": "incremental",
+      "seconds": 57.402,
+      "peak_working_set_gib": 1.49,
+      "counts": {
+        "batch_id": "batch-f76d66f2c401052c3101",
+        "source_filename": "actual_history.csv",
+        "staged_rows": 10000,
+        "within_upload_duplicates": 0,
+        "existing_exact_rows": 0,
+        "new_rows": 10000,
+        "possible_correction_rows": 0,
+        "ambiguous_identity_rows": 0,
+        "active_rows": 226203,
+        "star_fact_rows": 226203
+      },
+      "events": [
+        {
+          "seconds": 0.0,
+          "message": "Reading uploaded file...",
+          "peak_working_set_gib": 0.091
+        },
+        {
+          "seconds": 0.141,
+          "message": "Detecting duplicates and missing values...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 0.202,
+          "message": "Validating data types and financial values...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 0.32,
+          "message": "Building canonical transactions and star schema...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 1.356,
+          "message": "Load / Preparing to reconcile upload with active history...",
+          "peak_working_set_gib": 0.131
+        },
+        {
+          "seconds": 1.358,
+          "message": "Load / Reading active transaction snapshot from runtime database...",
+          "peak_working_set_gib": 0.131
+        },
+        {
+          "seconds": 6.009,
+          "message": "Load / Reconciling 10,000 staged rows against 216,203 active rows...",
+          "peak_working_set_gib": 0.571
+        },
+        {
+          "seconds": 13.481,
+          "message": "Load / Building star schema from 226,203 consolidated rows...",
+          "peak_working_set_gib": 0.699
+        },
+        {
+          "seconds": 38.941,
+          "message": "Load / Persisting 226,203 active rows and star schema to runtime database...",
+          "peak_working_set_gib": 0.858
+        }
+      ],
+      "checks": "passed",
+      "profiled": false
+    },
+    {
+      "scenario": "incremental",
+      "seconds": 54.245,
+      "peak_working_set_gib": 1.489,
+      "counts": {
+        "batch_id": "batch-f76d66f2c401052c3101",
+        "source_filename": "actual_history.csv",
+        "staged_rows": 10000,
+        "within_upload_duplicates": 0,
+        "existing_exact_rows": 0,
+        "new_rows": 10000,
+        "possible_correction_rows": 0,
+        "ambiguous_identity_rows": 0,
+        "active_rows": 226203,
+        "star_fact_rows": 226203
+      },
+      "events": [
+        {
+          "seconds": 0.0,
+          "message": "Reading uploaded file...",
+          "peak_working_set_gib": 0.09
+        },
+        {
+          "seconds": 0.156,
+          "message": "Detecting duplicates and missing values...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 0.214,
+          "message": "Validating data types and financial values...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 0.335,
+          "message": "Building canonical transactions and star schema...",
+          "peak_working_set_gib": 0.119
+        },
+        {
+          "seconds": 1.38,
+          "message": "Load / Preparing to reconcile upload with active history...",
+          "peak_working_set_gib": 0.131
+        },
+        {
+          "seconds": 1.381,
+          "message": "Load / Reading active transaction snapshot from runtime database...",
+          "peak_working_set_gib": 0.131
+        },
+        {
+          "seconds": 6.159,
+          "message": "Load / Reconciling 10,000 staged rows against 216,203 active rows...",
+          "peak_working_set_gib": 0.571
+        },
+        {
+          "seconds": 13.755,
+          "message": "Load / Building star schema from 226,203 consolidated rows...",
+          "peak_working_set_gib": 0.699
+        },
+        {
+          "seconds": 35.864,
+          "message": "Load / Persisting 226,203 active rows and star schema to runtime database...",
+          "peak_working_set_gib": 0.858
+        }
+      ],
+      "checks": "passed",
+      "profiled": false
+    }
+  ],
+  "summary": {
+    "repeat": {
+      "median_seconds": 46.884,
+      "max_peak_working_set_gib": 1.655
+    },
+    "incremental": {
+      "median_seconds": 54.245,
+      "max_peak_working_set_gib": 1.49
+    }
+  },
+  "scope": "Backend upload ETL plus reconciliation and SQLite publication; excludes post-upload analytics/forecast rendering. Peak working set includes worker setup; measured before post-run verification."
+}

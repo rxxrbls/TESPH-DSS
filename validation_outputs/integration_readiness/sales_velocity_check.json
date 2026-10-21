@@ -1,0 +1,10 @@
+{
+  "checked_skus": 62,
+  "complete_months": [
+    "2026-01",
+    "2026-02",
+    "2026-03"
+  ],
+  "formula": "Gross demand in three latest complete months / 3",
+  "passed": true
+}

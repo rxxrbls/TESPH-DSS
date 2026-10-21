@@ -33,7 +33,7 @@ def test_critical_risk():
     assert risk == "Critical"
 
 
-def test_medium_risk_with_five_days_of_inventory():
+def test_high_risk_with_five_days_of_inventory_within_lead_time():
     risk = classify_stock_out_risk(
         current_stock=50,
         average_daily_forecast_demand=10,
@@ -41,10 +41,10 @@ def test_medium_risk_with_five_days_of_inventory():
     )
 
     # DOI = 5
-    assert risk == "Medium"
+    assert risk == "High"
 
 
-def test_medium_risk_at_seven_day_boundary():
+def test_high_risk_at_seven_day_lead_time_boundary():
     risk = classify_stock_out_risk(
         current_stock=70,
         average_daily_forecast_demand=10,
@@ -52,10 +52,10 @@ def test_medium_risk_at_seven_day_boundary():
     )
 
     # DOI = 7 = Lead Time
-    assert risk == "Medium"
+    assert risk == "High"
 
 
-def test_low_risk_above_medium_threshold():
+def test_medium_risk_above_lead_time():
     risk = classify_stock_out_risk(
         current_stock=80,
         average_daily_forecast_demand=10,
@@ -63,10 +63,10 @@ def test_low_risk_above_medium_threshold():
     )
 
     # DOI = 8
-    assert risk == "Low"
+    assert risk == "Medium"
 
 
-def test_low_risk_at_ten_point_five_days():
+def test_medium_risk_at_one_point_five_lead_time_boundary():
     risk = classify_stock_out_risk(
         current_stock=105,
         average_daily_forecast_demand=10,
@@ -74,7 +74,7 @@ def test_low_risk_at_ten_point_five_days():
     )
 
     # DOI = 10.5 = 1.5 * Lead Time
-    assert risk == "Low"
+    assert risk == "Medium"
 
 
 def test_low_risk():

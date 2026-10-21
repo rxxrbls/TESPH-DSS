@@ -62,9 +62,28 @@ def _clean_boolean(series: pd.Series) -> pd.Series:
     return values.isin({"true", "1", "yes", "y"}).fillna(False)
 
 
-def _joined_unique(series: pd.Series) -> str | pd.NA:
-    values = _clean_text(series).dropna().drop_duplicates().sort_values(kind="stable")
-    return " | ".join(values.tolist()) if len(values) else pd.NA
+def _joined_unique_by_group(
+    frame: pd.DataFrame, group_columns: list[str], value_column: str
+) -> pd.DataFrame:
+    """Join sorted unique labels per group after cleaning the column once."""
+    values = _clean_text(frame[value_column])
+    pairs = frame[group_columns].copy()
+    pairs[value_column] = values
+    pairs = pairs.dropna(subset=[value_column])
+    if pairs.empty:
+        return pd.DataFrame(columns=[*group_columns, value_column])
+
+    pairs = pairs.sort_values(
+        [*group_columns, value_column], kind="stable", na_position="last"
+    ).drop_duplicates([*group_columns, value_column], keep="first")
+    result = (
+        pairs.groupby(group_columns, dropna=False, sort=True, observed=False)[value_column]
+        .agg(" | ".join)
+        .rename(value_column)
+        .reset_index()
+    )
+    result[value_column] = result[value_column].astype("string")
+    return result
 
 
 def _safe_rate(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
@@ -369,7 +388,6 @@ def calculate_product_performance(transactions: pd.DataFrame) -> pd.DataFrame:
     )
     result = grouped.agg(
         **{
-            "SKU": ("SKU", _joined_unique),
             "All Order Count": ("Order ID", "nunique"),
             "Demand Order Count": ("Demand Order ID", "nunique"),
             "Completed Order Count": ("Completed Order ID", "nunique"),
@@ -390,6 +408,9 @@ def calculate_product_performance(transactions: pd.DataFrame) -> pd.DataFrame:
             "Last Transaction Time": ("Time", "max"),
         }
     ).reset_index()
+    sku_labels = _joined_unique_by_group(frame, ["Product Key"], "SKU")
+    result = result.merge(sku_labels, on="Product Key", how="left", validate="many_to_one")
+    result["SKU"] = result["SKU"].astype("string")
     result["Return Quantity Rate"] = _safe_rate(
         result["Returned Quantity"], result["Gross Demand"]
     )
@@ -658,12 +679,7 @@ def calculate_product_movement_metrics(
         )
         .reset_index()
     )
-    sku_by_product = (
-        frame.groupby("Product Key", dropna=False, sort=True, observed=False)["SKU"]
-        .agg(_joined_unique)
-        .rename("SKU")
-        .reset_index()
-    )
+    sku_by_product = _joined_unique_by_group(frame, ["Product Key"], "SKU")
     result = result.merge(sku_by_product, on="Product Key", how="left", validate="one_to_one")
     result["Recent Average Demand"] = result["Recent Demand"] / recent_periods
     result["Demand Change"] = result["Recent Demand"] - result["Previous Demand"]

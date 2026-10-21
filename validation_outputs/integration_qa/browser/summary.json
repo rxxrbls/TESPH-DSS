@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "checks": [
+    "Invalid login rejected",
+    "Login and actual-data dashboard",
+    "Browser metric download matches independent actual-data audit",
+    "Forecast metrics and no-demand explanation visible",
+    "Invalid upload reported without losing active data",
+    "Real historical XLSX repeat adds zero rows",
+    "Actual stock workbook connects derived outputs",
+    "Stock-Out Risk renders connected data",
+    "Five-criterion MCA CSV matches independent actual-data audit",
+    "Product Prioritization renders connected data",
+    "Replenishment Recommendations renders connected data",
+    "Mobile header fits; collapsed-sidebar viewport captured",
+    "Browser refresh restores login gate"
+  ],
+  "browser_errors": [],
+  "scope": "Isolated app.py process, actual datasets, local QA credentials; desktop Edge headless and mobile viewport screenshot"
+}

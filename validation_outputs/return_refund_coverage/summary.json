@@ -1,0 +1,22 @@
+{
+  "checked_on": "2026-10-20",
+  "archive_sha256": "c7468d9b38805981122600e94ba4e105a3c44459aa5a17306e0082a9fb0f10ff",
+  "client_reported_export_date": "2026-10-16",
+  "client_reported_filter": "Full calendar months; appears Return Creation Time based",
+  "manifest_months": 72,
+  "missing_manifest_months": [],
+  "unexpected_manifest_months": [],
+  "duplicate_manifest_months": 0,
+  "header_only_months": [
+    "2020-05",
+    "2025-09",
+    "2025-10",
+    "2026-03"
+  ],
+  "product_request_lines": 3705,
+  "invalid_request_dates": 0,
+  "request_date_source_month_mismatches": 0,
+  "mca_order_date_period": null,
+  "analytical_update_cutoff": null,
+  "limitation": "Manifest and cleaned CSV verified. Original workbooks absent from ZIP. Request-month scope is not order-cohort completeness or inclusion of requests through October 16."
+}

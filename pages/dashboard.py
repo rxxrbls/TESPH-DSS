@@ -9,7 +9,7 @@ from utils.state import DataStatus, ensure_derived_outputs_for_active_dataset, g
 
 guard_protected_page()
 render_page_shell("Dashboard", "Overview")
-ensure_derived_outputs_for_active_dataset()
+ensure_derived_outputs_for_active_dataset(include_forecast=False)
 
 if get_data_status() is not DataStatus.DATA_READY:
     empty_state("No data available yet", "Upload your Shopee transaction file to begin analysis.", "Data")

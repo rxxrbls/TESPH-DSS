@@ -100,6 +100,18 @@ def detect_missing_values(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame({"row": df.index.to_numpy()[rows], "column": df.columns.to_numpy()[columns]})
 
 
+def count_missing_values(df: pd.DataFrame) -> int:
+    """Count the same missing cells without allocating millions of locations."""
+    total = 0
+    for column in df.columns:
+        values = df[column]
+        missing = values.isna()
+        if pd.api.types.is_object_dtype(values) or pd.api.types.is_string_dtype(values):
+            missing |= values.astype("string").str.strip().eq("").fillna(False)
+        total += int(missing.sum())
+    return total
+
+
 def parse_datetime_values(values: pd.Series, *, errors: str) -> pd.Series:
     """Parse mixed Shopee datetime strings without pandas inference warnings."""
 
@@ -169,7 +181,11 @@ def transform_transactions(df: pd.DataFrame) -> pd.DataFrame:
     returned_quantity = pd.to_numeric(clean[returned_quantity_column], errors="coerce") if returned_quantity_column else pd.Series(0, index=clean.index)
     clean["is_completed"] = statuses.eq("completed").fillna(False)
     clean["is_cancelled"] = statuses.str.contains("cancel", na=False)
-    clean["is_returned"] = returned_quantity.gt(0) | return_status.isin(["request approved", "dispute resolved"])
+    clean["is_returned"] = (
+        statuses.isin(["returned", "refunded"])
+        | returned_quantity.gt(0)
+        | return_status.isin(["returned", "refunded", "request approved", "dispute resolved"])
+    )
     negative_report = report["negative_financial_values"]
     negative_fields = negative_report.groupby("row")["column"].agg(" | ".join) if not negative_report.empty else pd.Series(dtype="string")
     clean["has_negative_financial_value"] = clean.index.isin(negative_fields.index)
@@ -436,7 +452,11 @@ def main() -> None:
     clean["is_cancelled"] = statuses.str.contains("cancel", na=False)
     return_status = clean[return_status_col].astype("string").str.strip().str.casefold() if return_status_col else pd.Series(pd.NA, index=clean.index, dtype="string")
     returned_qty = pd.to_numeric(clean[returned_qty_col], errors="coerce") if returned_qty_col else pd.Series(0, index=clean.index)
-    clean["is_returned"] = returned_qty.gt(0) | return_status.isin(["request approved", "dispute resolved"])
+    clean["is_returned"] = (
+        statuses.isin(["returned", "refunded"])
+        | returned_qty.gt(0)
+        | return_status.isin(["returned", "refunded", "request approved", "dispute resolved"])
+    )
 
     # Re-evaluate line candidates after removing only confirmed exact copies.
     possible_keys = list(dict.fromkeys(c for c in (order_col, product_col, sku_col, variation_col) if c))

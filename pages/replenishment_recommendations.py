@@ -26,7 +26,10 @@ else:
             "Risk Index", "Priority Level", "SKU Priority Score", "Priority Rank",
             "Current Stock", "Safety Stock", "Target Stock Level", "Recommended Quantity",
             "Recommendation Priority", "Recommendation", "Recommendation Explanation",
+            "Supplier Lead Time", "Supplier Lead Time Source",
         ]
         st.dataframe(recommendations[[column for column in columns if column in recommendations]], hide_index=True)
+        if "Supplier Lead Time Source" in recommendations and recommendations["Supplier Lead Time Source"].astype(str).str.startswith("Fallback ").any():
+            st.warning("At least one SKU uses the system fallback lead time. Confirm supplier lead times before acting on replenishment quantities.")
 
 info_message("Decision-support only: outputs support business-owner review and do not place orders or modify Shopee inventory.")

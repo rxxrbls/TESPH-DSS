@@ -1,0 +1,8 @@
+{
+  "snapshot_id": "900410186b93787c91e6a9c67ecee4ba0fcc1effd75c77e21ed417c005cb0208",
+  "source_file_count": 194,
+  "archive_sha256": "6216aacfb18c34ebd544acbff9e0b6824ce1b19ebe9763f83e24723056260570",
+  "archive_bytes": 2544287,
+  "archive": "C:\\B\\College\\4TH YEAR\\CAPSTONE\\TESPH-DSS\\.artifacts\\integration_candidate\\tesph_three_criterion_provisional.zip",
+  "checks": "ZIP integrity and every source checksum verified"
+}

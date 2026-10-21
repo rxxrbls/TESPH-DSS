@@ -37,6 +37,7 @@ DEFAULT_STATE: dict[str, Any] = {
     # Reserved for approved predictive/risk outputs; the UI does not derive risk levels.
     "risk_results": None,
     "mca_results": None,
+    "mca_audit": None,
     "recommendation_results": None,
     "prescriptive_error_message": None,
     "inventory_data": None,
@@ -52,6 +53,25 @@ def initialize_app_state() -> None:
     """Set predictable defaults once per Streamlit session."""
     for key, value in DEFAULT_STATE.items():
         st.session_state.setdefault(key, value)
+    obsolete_criteria = {"Gross Revenue", "Projected Stock-Out Risk", "Stock-Out Frequency"}
+    outdated = any(
+        frame is not None and obsolete_criteria.intersection(frame.columns)
+        for frame in (st.session_state.get(key) for key in
+                      ("mca_results", "mca_audit", "recommendation_results"))
+    )
+    if outdated:
+        # A live session may retain scores computed before the approved criteria changed.
+        st.session_state["mca_results"] = None
+        st.session_state["mca_audit"] = None
+        st.session_state["recommendation_results"] = None
+        st.session_state["prescriptive_error_message"] = "MCA methodology was updated. Refresh connected stock outputs to replace the previous criteria."
+    if st.session_state.get("three_criterion_active"):
+        audit = st.session_state.get("mca_audit")
+        if audit is not None and "Return Rate" in audit:
+            st.session_state["mca_results"] = None
+            st.session_state["mca_audit"] = None
+            st.session_state["recommendation_results"] = None
+            st.session_state["prescriptive_error_message"] = "Refresh stock outputs to replace legacy MCA results."
 
 def restore_runtime_authority() -> None:
     """Load the active runtime snapshot without computing derived outputs.
@@ -79,27 +99,31 @@ def restore_runtime_authority() -> None:
         st.session_state["data_status"] = DataStatus.DATA_READY.value if txns is not None and not txns.empty else DataStatus.NO_DATA.value
         st.session_state["_runtime_authority_loaded"] = True
         st.session_state["_bootstrapped"] = True
+        from mca_refresh import review_path
+        from return_refund_store import load_evidence
+        st.session_state["three_criterion_active"] = load_evidence(review_path()) is not None
     except Exception:
         _log.exception("Runtime authority restore failed; app will show an empty state until the user requests data.")
         st.session_state["_runtime_authority_loaded"] = True
         st.session_state["_bootstrapped"] = True
 
 
-def ensure_derived_outputs_for_active_dataset() -> None:
-    """Compute missing analytics/forecast outputs only when a given page needs them."""
+def ensure_derived_outputs_for_active_dataset(
+    *, include_analytics: bool = True, include_forecast: bool = True
+) -> None:
+    """Compute only the missing output families requested by the current page."""
     restore_runtime_authority()
     txns = st.session_state.get("prepared_transactions")
     if txns is None or getattr(txns, "empty", True):
         return
 
-    if not has_valid_analytics_for_active_dataset():
+    if include_analytics and not has_valid_analytics_for_active_dataset():
         from analytics_pipeline import run_analytics_pipeline
         set_analytics_results(run_analytics_pipeline(txns))
 
-    if not has_valid_forecast_for_active_dataset():
-        from forecasting_pipeline import run_forecasting_pipeline
+    if include_forecast and not has_valid_forecast_for_active_dataset():
         try:
-            set_forecast_results(run_forecasting_pipeline(txns))
+            set_forecast_results(run_active_forecasting_pipeline(txns))
         except Exception:
             import logging
             logging.getLogger(__name__).exception("Forecast generation for the active dataset failed; analytics remain available")
@@ -107,9 +131,50 @@ def ensure_derived_outputs_for_active_dataset() -> None:
             st.session_state["forecast_error_message"] = "Forecasting could not be prepared for this dataset."
 
 
+def run_active_forecasting_pipeline(transactions: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    """Run the integrated forecast with the governed active-catalog mapping."""
+    from active_inventory import build_active_mapping
+    from forecasting_pipeline import run_forecasting_pipeline
+
+    mapping, inventory_review = build_active_mapping(transactions)
+    results = run_forecasting_pipeline(transactions, mapping=mapping)
+    results["inventory_review"] = inventory_review
+    return results
+
+
 def bootstrap_from_active_db() -> None:
     """Compatibility wrapper for explicit data restoration without blocking sign-in."""
     restore_runtime_authority()
+
+
+def ensure_star_schema_for_active_dataset() -> dict | None:
+    """Load Star Schema tables on demand for pages that need dimensions.
+
+    Runtime transactions are restored separately so authentication and the
+    dashboard do not pay for a second large database read unless the upload
+    page needs its dimension tables.
+    """
+    restore_runtime_authority()
+    if st.session_state.get("data_status") != DataStatus.DATA_READY.value:
+        return st.session_state.get("star_schema")
+
+    current = st.session_state.get("star_schema")
+    if current is not None:
+        return current
+
+    from etl_config import FINAL_OUTPUT_DIR, RUNTIME_DB_PATH
+
+    if RUNTIME_DB_PATH.is_file():
+        from star_schema_db import read_runtime_star_schema
+
+        star_schema = read_runtime_star_schema(RUNTIME_DB_PATH)
+    else:
+        from etl import load_star_schema
+
+        star_schema = load_star_schema(FINAL_OUTPUT_DIR)
+
+    st.session_state["star_schema"] = star_schema
+    return star_schema
 
 
 def reset_application_session() -> None:
@@ -269,15 +334,22 @@ def set_prescriptive_results(
     mca: pd.DataFrame | None,
     recommendations: pd.DataFrame | None,
     error_message: str | None = None,
+    *,
+    mca_audit: pd.DataFrame | None = None,
 ) -> None:
     st.session_state["risk_results"] = risk
     st.session_state["mca_results"] = mca
+    st.session_state["mca_audit"] = mca_audit
     st.session_state["recommendation_results"] = recommendations
     st.session_state["prescriptive_error_message"] = error_message
 
 
 def get_mca_results() -> pd.DataFrame | None:
     return st.session_state.get("mca_results")
+
+
+def get_mca_audit() -> pd.DataFrame | None:
+    return st.session_state.get("mca_audit")
 
 
 def get_recommendation_results() -> pd.DataFrame | None:
@@ -333,8 +405,10 @@ def clear_stock_derived_results() -> None:
     st.session_state["forecast_error_message"] = None
     st.session_state["risk_results"] = None
     st.session_state["mca_results"] = None
+    st.session_state["mca_audit"] = None
     st.session_state["recommendation_results"] = None
     st.session_state["prescriptive_error_message"] = None
+    st.session_state["mca_sensitivity"] = None
 
 
 def clear_stock_dependent_results() -> None:

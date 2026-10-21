@@ -134,3 +134,20 @@ def test_failed_replacement_preserves_previous_valid_database(successful_run):
         ).fetchall()
     assert after_counts == before_counts
     assert after_fact == before_fact
+
+
+def test_final_production_sqlite_contains_only_six_star_tables(successful_run, tmp_path):
+    result, _ = successful_run
+    production_db = tmp_path / "production_star_schema.db"
+    load_star_schema(result.star_schema, db_path=production_db)
+
+    with sqlite3.connect(production_db) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            )
+        }
+
+    assert tables == set(LOAD_ORDER)
+    assert "prepared_transactions" not in tables

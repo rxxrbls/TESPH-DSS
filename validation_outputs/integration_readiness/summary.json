@@ -1,0 +1,128 @@
+{
+  "source_sha256": "66b3aa57d6bb4352e04399370ba602fd368e378994dbf6fe38d343480502917e",
+  "available_databases": [
+    {
+      "path": "runtime_data\\active_transactions.db",
+      "exists": false
+    },
+    {
+      "path": ".artifacts\\qa\\before_full_seed.db",
+      "exists": true,
+      "counts": {
+        "prepared_transactions": 226203,
+        "fact_sales": 226203,
+        "dim_product": 2116
+      },
+      "sha256": "d4c7ffa03f1f027b60017d8fb298c477d17cfc46442bc786ca88d3c2e454455a"
+    },
+    {
+      "path": ".artifacts\\qa\\full_seed.db",
+      "exists": true,
+      "counts": {
+        "prepared_transactions": 226203,
+        "fact_sales": 226203,
+        "dim_product": 2116
+      },
+      "sha256": "d4c7ffa03f1f027b60017d8fb298c477d17cfc46442bc786ca88d3c2e454455a"
+    },
+    {
+      "path": ".artifacts\\qa\\incremental_seed.db",
+      "exists": true,
+      "counts": {
+        "prepared_transactions": 216203,
+        "fact_sales": 216203,
+        "dim_product": 1994
+      },
+      "sha256": "5c8f2f83813a8c9a2913b67241d670deee7ce25d7ec2af9e77fbff427784f358"
+    },
+    {
+      "path": ".artifacts\\qa\\three_criterion_review.db",
+      "exists": true,
+      "counts": {},
+      "sha256": "6deab6130a65c68dda574561688abca51131d5d3f6cfd13921247f8f48f7b841"
+    },
+    {
+      "path": ".artifacts\\qa\\trial_incremental.db",
+      "exists": true,
+      "counts": {
+        "prepared_transactions": 226203,
+        "fact_sales": 226203,
+        "dim_product": 2116
+      },
+      "sha256": "1bf38accdc2fe829257ff908c2bdfcec17d1cb67e589924341c54ef5a60a8df5"
+    },
+    {
+      "path": ".artifacts\\qa\\trial_repeat.db",
+      "exists": true,
+      "counts": {
+        "prepared_transactions": 226203,
+        "fact_sales": 226203,
+        "dim_product": 2116
+      },
+      "sha256": "4495b2f7ac5ab4295ffe6f032f9edd30f3fb2c1a92232a26573a7ce913275f86"
+    }
+  ],
+  "candidate": {
+    "rows": 226203,
+    "columns": 76,
+    "restored_references": 112,
+    "database_counts": {
+      "dim_product": 2116,
+      "dim_date": 2004,
+      "dim_order": 133586,
+      "dim_shipping": 132344,
+      "dim_payment": 7,
+      "fact_sales": 226203
+    },
+    "dataset_id": "active-91e2ac5a6ffeae457cc0",
+    "all_csv_db_values_equal": true
+  },
+  "independent_checks": {
+    "forecast_skus": 62,
+    "validation_metric_rows": 186,
+    "return_denominators": 67,
+    "coverage_false_all_rates_unavailable": true,
+    "mca_rankings_per_scenario": 61,
+    "weight_scenarios_checked": 2,
+    "sensitivity": {
+      "eligible_skus": 61,
+      "excluded_skus": 1,
+      "pearson": null,
+      "spearman": null,
+      "correlation_status": "Undefined: insufficient rows or constant criterion",
+      "rank_changes": 0,
+      "group_changes": 0,
+      "max_absolute_rank_change": 0,
+      "policy_version": "three-criterion-provisional-v1",
+      "final_weights_locked": false,
+      "criterion_unique_values": {
+        "Sales Velocity": 8,
+        "Forecasted Demand": 1,
+        "Recorded Return/Refund Quantity Rate": 1
+      },
+      "criterion_minimums": {
+        "Sales Velocity": 0.0,
+        "Forecasted Demand": 0.0,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "criterion_maximums": {
+        "Sales Velocity": 6.333333333333333,
+        "Forecasted Demand": 0.0,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      }
+    }
+  },
+  "coverage_limitation": "Confirmed selected request-date files only; not lifetime refund coverage or a simultaneous October update cutoff. TA baseline acceptance pending.",
+  "source_unchanged": true,
+  "candidate_files": {
+    "corrected_candidate.db": "0670f1779aa1f3ee5704943fe7f87b6a643e85b37564eac409f864d1de754404",
+    "dim_date.csv": "5863de7d25ba0265226997ad9f54a389bbd1b6995207238d446df5588acdde09",
+    "dim_order.csv": "509672390592885ed553ced8af4f3bf25337cb4cade7e8bcb8fa4293f48adc3b",
+    "dim_payment.csv": "22532579d8625ff9fa34fbea3dd21e819a41bb1be9d895c8c252737fb9066b85",
+    "dim_product.csv": "8cdd2e57e3ebd26c7f098021c20cafa27cba19203581cbbbb0b672ed370c0e39",
+    "dim_shipping.csv": "74f195c3dd8cc9a75427bdc2f63eba8d40f4e7ca4f0f77adee332042df696ff1",
+    "fact_sales.csv": "7d6ef38e7c791b4b4d2335521c86049e11ddac544d551c338b030389f5619431",
+    "prepared_transactions.csv": "e4e6ce36bdfcdb59b4bfe4f136429c703755d63d0152b327b6ebcda94682e4b2",
+    "validation_detail.csv": "e9b73cb089a2eb8d02e7aa8ce5b0ca8c96eca06493e657d086087307e23a35f6"
+  }
+}

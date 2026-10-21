@@ -1,6 +1,8 @@
 # TESPH-DSS
 Prescriptive Analytics Decision-Support System for Shopee Sales Performance and Inventory Replenishment Recommendations of TheEverythingShopPH.
 
+Work-in-progress backup: equal-third MCA baseline weights and reporting the limited historical baseline are approved. Expanded-period validation and merged-build acceptance remain pending; this is not a handoff. Start with the [current documentation index](docs/README.md), [draft candidate notes](docs/corrected_candidate_integration_handoff.md), and [setup instructions](docs/integration_candidate_setup.md).
+
 ## Week 2 Analytics
 
 Run `python -m pip install -r requirements.txt`, then

@@ -1,0 +1,15 @@
+{
+  "audit_date": "2026-10-08",
+  "transaction_rows": 226203,
+  "transaction_sha256": "66b3aa57d6bb4352e04399370ba602fd368e378994dbf6fe38d343480502917e",
+  "stock_sha256": "0533116623a5fe64e72ba550a024c617c1a862fcbef10395f942f1bac15ad61a",
+  "forecast_skus": 59,
+  "scored_skus": 0,
+  "risk_rows": 59,
+  "recommendation_rows": 59,
+  "status_counts": {
+    "Unavailable: Profit Margin, Supplier Lead Time, Stock-Out Frequency, Return Rate": 59
+  },
+  "checks": "PASS: no substituted scores; missing-input audit; single snapshot unavailable; real-data frontend audit matches backend",
+  "input_limitations": "No approved net-sales/cost ledger, daily stock history, MCA period, or MCA fallback decision supplied. Current catalog is used only for the existing sample mapping/risk path."
+}

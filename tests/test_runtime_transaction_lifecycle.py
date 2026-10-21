@@ -65,6 +65,27 @@ def _checksum(path: Path) -> str:
     return sha256(path.read_bytes()).hexdigest()
 
 
+def test_chunked_restore_matches_full_read_with_null_only_chunks(tmp_path, monkeypatch):
+    from runtime_data_store import _restore_prepared_dtypes
+    rows = [_raw_row("C-1"), _raw_row("C-2"), _raw_row("C-3")]
+    rows[1]["Parent SKU Reference No."] = None
+    rows[2]["Parent SKU Reference No."] = None
+    baseline, prepared = _baseline(tmp_path, rows)
+    database = tmp_path / "chunked.db"
+    publish_validated_upload(prepared, source_filename="source.csv", db_path=database, baseline_path=baseline)
+    original_read = pd.read_sql_query
+    with closing(sqlite3.connect(database)) as connection:
+        expected = _restore_prepared_dtypes(original_read("SELECT * FROM prepared_transactions", connection))
+
+    def read_small_chunks(*args, **kwargs):
+        if "chunksize" in kwargs:
+            kwargs["chunksize"] = 1
+        return original_read(*args, **kwargs)
+
+    monkeypatch.setattr(pd, "read_sql_query", read_small_chunks)
+    pd.testing.assert_frame_equal(load_active_state(db_path=database).transactions, expected, check_exact=True)
+
+
 def _ingestion_batches(path: Path) -> pd.DataFrame:
     conn = sqlite3.connect(path)
     try:
@@ -272,6 +293,24 @@ def test_changed_possible_identity_is_quarantined_not_silently_overwritten(tmp_p
     assert summary["new_rows"] == 0
     assert summary["possible_correction_rows"] == 1
     assert active["Quantity"].tolist() == [1]
+
+
+def test_changed_identity_with_multiple_historical_candidates_is_ambiguous(tmp_path):
+    baseline, _ = _baseline(
+        tmp_path,
+        [_raw_row("O-1", quantity=1), _raw_row("O-1", quantity=2)],
+    )
+    _, active, summary, _ = publish_validated_upload(
+        _prepared([_raw_row("O-1", quantity=3)]), source_filename="ambiguous.csv",
+        db_path=tmp_path / "runtime.db", baseline_path=baseline,
+    )
+
+    assert summary["staged_rows"] == 1
+    assert summary["ambiguous_identity_rows"] == 1
+    assert summary["possible_correction_rows"] == 0
+    assert summary["new_rows"] == 0
+    assert len(active) == 2
+    assert sorted(active["Quantity"].tolist()) == [1, 2]
 
 
 def test_failed_schema_does_not_replace_existing_runtime_snapshot(tmp_path):

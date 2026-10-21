@@ -17,7 +17,7 @@ import pandas as pd
 from etl import (
     extract_file,
     detect_exact_duplicates,
-    detect_missing_values,
+    count_missing_values,
     validate_data_types,
     transform_transactions,
     validate_final_schema,
@@ -158,8 +158,7 @@ def run_etl_from_upload(
     if dup_count:
         warnings.append(f"{dup_count} exact duplicate rows detected")
 
-    missing_df = detect_missing_values(raw_df)
-    missing_count = len(missing_df)
+    missing_count = count_missing_values(raw_df)
 
     steps.append(ETLStepResult(
         step_name="Clean", step_index=1, success=True,
@@ -224,9 +223,12 @@ def run_etl_from_upload(
 
     # ── Step 3: Transform ───────────────────────────────────────────
     _notify(3, "Transform", "Building canonical transactions and star schema...")
+    raw_row_count, raw_column_count = raw_df.shape
     try:
         transformed = transform_transactions(raw_df)
+        del raw_df
         star_schema = build_star_schema_tables(transformed)
+        del transformed
         prepared = star_schema.pop("prepared_transactions", None)
 
         # Schema validation for each table
@@ -261,7 +263,7 @@ def run_etl_from_upload(
         return ETLResult(
             success=False, source_filename=filename,
             star_schema={}, prepared_transactions=None,
-            validation_report=_build_report(steps, warnings, errors, False, row_count=len(raw_df), column_count=len(raw_df.columns), dup_count=dup_count, missing_count=missing_count, type_issues=type_issues, neg_count=neg_count),
+            validation_report=_build_report(steps, warnings, errors, False, row_count=raw_row_count, column_count=raw_column_count, dup_count=dup_count, missing_count=missing_count, type_issues=type_issues, neg_count=neg_count),
             error_message=user_msg,
         )
 
@@ -269,6 +271,8 @@ def run_etl_from_upload(
     # This step has several time-consuming sub-phases.  Each _notify call
     # pushes an incremental status update to the Streamlit browser so the
     # user can see actual progress rather than a frozen message.
+    # Reconciliation needs only the canonical frame; raw and transformed
+    # temporary frames have been released before loading the active history.
     _notify(4, "Load", "Load / Preparing to reconcile upload with active history...")
     all_valid = all(schema_valid.values()) and not errors
 
@@ -292,7 +296,7 @@ def run_etl_from_upload(
             )
             from star_schema_db import (
                 load_runtime_snapshot as _load_snap,
-                read_runtime_snapshot as _read_snap,
+                read_runtime_star_schema as _read_stars,
                 record_ingestion_batch as _record_batch,
             )
 
@@ -331,7 +335,8 @@ def run_etl_from_upload(
                     4, "Load",
                     "Load / Reusing the published runtime snapshot; no new authoritative rows were detected..."
                 )
-                star_schema, prepared = _read_snap(_db_path)
+                star_schema = _read_stars(_db_path)
+                prepared = active.transactions
                 batch_id = reconciled.summary["batch_id"]
                 audit_batch = reconciled.batches.loc[
                     reconciled.batches["batch_id"].eq(batch_id)
@@ -398,6 +403,13 @@ def run_etl_from_upload(
                 db_counts = {name: len(table) for name, table in star_schema.items()}
                 db_loaded = True
                 reused_existing_outputs = False
+            from mca_refresh import review_after_sales
+            try:
+                review_after_sales(prepared, _db_path)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("Sales saved but return/refund review is pending")
+                warnings.append("Sales were saved; return/refund review failed. MCA outputs must remain unavailable until a successful connected refresh.")
         except Exception as exc:
             all_valid = False
             errors.append(f"Database persistence failed: {exc}")
@@ -429,8 +441,8 @@ def run_etl_from_upload(
         prepared_transactions=prepared,
         validation_report=_build_report(
             steps, warnings, errors, all_valid and db_loaded,
-            row_count=len(raw_df),
-            column_count=len(raw_df.columns),
+            row_count=raw_row_count,
+            column_count=raw_column_count,
             dup_count=dup_count,
             missing_count=missing_count,
             type_issues=type_issues,

@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "ranked_skus": 61,
+  "readiness_rows": 62,
+  "checks": [
+    "No page exception",
+    "Exact backend/ranking table equality",
+    "Missing rate displayed as N/A",
+    "Provisional and coverage caveats visible",
+    "Exact backend/sensitivity table equality"
+  ],
+  "scope": "Current Streamlit page component with real candidate output tables; not Member 3's merged build or browser end-to-end acceptance."
+}

@@ -1,0 +1,13 @@
+{
+  "assessment_date": "2026-10-12",
+  "stock_source": "raw_data\\current_stock\\shopee_current_stock_raw_2026-09-09.xlsx",
+  "transaction_rows": 226203,
+  "forecast_skus": 60,
+  "scored_skus": 0,
+  "risk_rows": 60,
+  "recommendation_rows": 60,
+  "status_counts": {
+    "Unavailable: Profit Margin, Supplier Lead Time, Return Rate": 60
+  },
+  "scope": "Raw uploaded workbook and isolated full-seed product dimension; distinct from governed catalog audit."
+}

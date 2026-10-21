@@ -97,7 +97,7 @@ def _crosswalk_with_resolved_keys(stock):
 
 
 def test_mca_configuration_normalization_weights_and_deterministic_ties():
-    assert len(MCA_CRITERIA) == 6
+    assert len(MCA_CRITERIA) == 5
     assert set(MCA_DIRECTIONS) == set(MCA_CRITERIA)
     assert set(MCA_WEIGHTS) == set(MCA_CRITERIA)
     assert sum(MCA_WEIGHTS.values()) == pytest.approx(1.0)
@@ -114,7 +114,20 @@ def test_mca_configuration_normalization_weights_and_deterministic_ties():
     ranked = calculate_mca_scores(alternatives, identifier_columns=["SKU"])
     assert ranked["SKU"].tolist() == ["A", "B"]
     assert ranked["Priority Rank"].tolist() == [1, 2]
-    assert ranked["Priority Level"].tolist() == ["Medium", "Medium"]
+    assert ranked["Priority Level"].tolist() == ["High", "Medium"]
+
+
+def test_mca_priority_uses_ranked_25_50_25_cohort_bands():
+    alternatives = pd.DataFrame(
+        {
+            "SKU": [f"SKU-{i:02}" for i in range(8)],
+            **{criterion: list(range(8)) for criterion in MCA_CRITERIA},
+        }
+    )
+    ranked = calculate_mca_scores(alternatives, identifier_columns=["SKU"])
+    assert ranked["Priority Level"].tolist() == [
+        "High", "High", "Medium", "Medium", "Medium", "Medium", "Low", "Low"
+    ]
 
 
 def test_stock_risk_doi_index_and_default_classification_bands():
@@ -128,14 +141,13 @@ def test_stock_risk_doi_index_and_default_classification_bands():
     assert risk.loc["A", "Days of Inventory"] == 0
     assert risk.loc["A", "Risk Index"] == 1
     assert risk.loc["A", "Stock-Out Risk"] == "Critical"
-    assert risk.loc["B", "Stock-Out Risk"] == "Critical"
+    assert risk.loc["B", "Stock-Out Risk"] == "High"
     assert risk.loc["C", "Stock-Out Risk"] == "High"
-    assert risk.loc["D", "Stock-Out Risk"] == "Medium"
-    assert risk.loc["E", "Stock-Out Risk"] == "Low"
+    assert risk.loc["D", "Stock-Out Risk"] == "High"
+    assert risk.loc["E", "Stock-Out Risk"] == "Medium"
     assert risk.loc["F", "Stock-Out Risk"] == "No Forecast Demand"
-    assert STOCK_RISK_THRESHOLDS.critical_max_days == 1
-    assert STOCK_RISK_THRESHOLDS.high_max_days == 3
-    assert STOCK_RISK_THRESHOLDS.medium_max_days == 7
+    assert STOCK_RISK_THRESHOLDS.supplier_lead_time_days == 7
+    assert STOCK_RISK_THRESHOLDS.medium_buffer_multiplier == 1.5
 
 
 def test_target_stock_safety_stock_and_quantity():
@@ -157,16 +169,17 @@ def test_complete_shared_analytics_forecast_risk_mca_recommendation_flow():
 
     assert risk.loc["SKU-A", "Stock-Out Risk"] == "Critical"
     assert risk.loc["SKU-A", "Risk Index"] == 1.0
-    assert mca.loc["SKU-A", "Priority Rank"] in {1, 2}
+    assert mca.empty  # No costs/history/measurement period: never score substitutes.
+    assert not results["mca_audit"]["MCA Eligible"].any()
     assert recommendations.loc["SKU-A", "Recommended Quantity"] == 30
-    assert recommendations.loc["SKU-A", "Recommendation"] == "Replenish to target"
+    assert recommendations.loc["SKU-A", "Recommendation"] == "Immediate Restock"
     assert recommendations.loc["SKU-A", "Recommendation Priority"] == "Immediate"
     assert recommendations.loc["SKU-B", "Recommended Quantity"] == 0
-    assert recommendations.loc["SKU-B", "Recommendation"] == "Maintain stock"
+    assert recommendations.loc["SKU-B", "Recommendation"] == "Maintain Stock"
     explanation = recommendations.loc["SKU-A", "Recommendation Explanation"]
     assert "Risk Index" in explanation
     assert "MCA" in explanation
-    assert "14 lead/review days" in explanation
+    assert "7 lead + 7 review days" in explanation
 
 
 def test_stock_upload_mapping_uses_the_resolved_crosswalk_key():
@@ -228,6 +241,21 @@ def test_stale_or_review_required_inventory_is_excluded():
     assert result["recommendation_results"].empty
 
 
+def test_client_selected_stock_age_threshold_controls_replenishment_eligibility():
+    transactions, analytics, forecast, stock = _pipeline_inputs()
+    result = run_prescriptive_pipeline(
+        transactions,
+        analytics,
+        forecast,
+        stock,
+        as_of="2026-09-28",
+        max_stock_age_days=10,
+    )
+    risk = result["risk_results"].set_index("SKU")
+    assert risk["Stock-Out Risk"].eq("Insufficient Stock Data").all()
+    assert result["recommendation_results"].empty
+
+
 def test_missing_mca_criterion_is_not_imputed():
     transactions, analytics, forecast, stock = _pipeline_inputs()
     analytics["product_performance"].loc[0, "Returned Quantity"] = np.nan
@@ -242,6 +270,22 @@ def test_missing_mca_criterion_is_not_imputed():
     assert "MCA unavailable" in recommendation.loc[
         "SKU-A", "Recommendation Explanation"
     ]
+
+
+def test_missing_mca_criterion_does_not_block_replenishment_priority():
+    transactions, analytics, forecast, stock = _pipeline_inputs()
+    analytics["product_performance"].loc[0, "Returned Quantity"] = np.nan
+    stock.loc[stock["SKU"].eq("SKU-A"), "Stock"] = 0
+
+    result = run_prescriptive_pipeline(
+        transactions, analytics, forecast, stock, as_of="2026-09-28"
+    )
+    recommendation = result["recommendation_results"].set_index("SKU").loc["SKU-A"]
+
+    assert recommendation["Recommended Quantity"] > 0
+    assert pd.isna(recommendation["Priority Level"])
+    assert recommendation["Recommendation Priority"] == "Immediate"
+    assert "MCA unavailable" in recommendation["Recommendation Explanation"]
 
 
 def test_missing_stock_is_not_imputed_or_recommended():
@@ -286,7 +330,7 @@ def test_zero_forecast_demand_needs_no_replenishment():
     assert risk.loc["SKU-A", "Risk Index"] == 0.0
     assert recommendation.loc["SKU-A", "Target Stock Level"] == 0
     assert recommendation.loc["SKU-A", "Recommended Quantity"] == 0
-    assert recommendation.loc["SKU-A", "Recommendation"] == "Monitor; no forecast demand"
+    assert recommendation.loc["SKU-A", "Recommendation"] == "No Immediate Restock / Monitor Demand"
     assert "DOI not applicable" in recommendation.loc[
         "SKU-A", "Recommendation Explanation"
     ]

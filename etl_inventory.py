@@ -178,7 +178,10 @@ def validate_current_inventory(frame: pd.DataFrame, config: InventoryConfig | No
         "row_count": len(records), "row_checks": pd.DataFrame(checks, columns=columns),
         "stock_as_of": config.stock_as_of,
         "stock_as_of_status": "provided" if config.stock_as_of is not None else "pending_confirmation",
-        "stock_definition_status": "pending_client_confirmation",
+        "stock_definition_status": (
+            "confirmed_net_sellable" if config.stock_definition_confirmed
+            else "pending_client_confirmation"
+        ),
     }
 
 
@@ -253,7 +256,8 @@ def build_inventory_crosswalk(
         if report["stock_as_of"] is None:
             reasons.append("stock_as_of_pending_confirmation")
         # Mapping candidates never imply confirmation of physical stock semantics.
-        reasons.append("stock_definition_pending_client_confirmation")
+        if report["stock_definition_status"] != "confirmed_net_sellable":
+            reasons.append("stock_definition_pending_client_confirmation")
         results.append({
             "product_key": next(iter(candidates)) if safe_candidate else pd.NA,
             "candidate_product_keys": " | ".join(sorted(candidates)),

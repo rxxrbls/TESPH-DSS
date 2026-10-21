@@ -1,0 +1,99 @@
+{
+  "sales_end": "2026-04-24 00:00:00",
+  "transaction_rows": 226203,
+  "historical_product_keys": 2116,
+  "stock_rows": 1980,
+  "stock_status": {
+    "candidate": 1092,
+    "unmatched": 834,
+    "review_required": 54
+  },
+  "accepted_stock_skus": 65,
+  "current_total_historical_units": 738.0,
+  "current_last_positive_min": "2024-02-12 00:00:00",
+  "current_last_positive_max": "2026-03-13 00:00:00",
+  "current_no_positive_history": 1,
+  "current_positive_last_30d": 0,
+  "all_products_positive_last_30d": 2,
+  "current_requests": 1,
+  "current_refunded_lines": 0,
+  "unique_historical_skus": 93,
+  "unique_historical_skus_positive_last_30d": 0,
+  "unique_historical_skus_with_refunded_lines": 1,
+  "unique_historical_skus_positive_last_30d_and_refunded": 0,
+  "request_lines_in_any_stock_candidate": 2241,
+  "refunded_lines_in_any_stock_candidate": 1286,
+  "inventory_eligibility_reasons": {
+    "Missing source SKU": 1712,
+    "Missing or duplicate product key": 111,
+    "Reused SKU: stock pool unresolved": 90,
+    "Eligible current catalog match": 65,
+    "Historical/current SKU conflict": 2
+  },
+  "missing_sku_transaction_rows": 225370,
+  "historical_keys_without_sku": 2021,
+  "historical_keys_multiple_skus": 2,
+  "request_lines_in_unambiguous_stock_candidates": 2224,
+  "refunded_lines_in_unambiguous_stock_candidates": 1273,
+  "unambiguous_stock_candidates_without_sku": 1025,
+  "april_status_counts_all": {
+    "Cancelled": 22,
+    "Shipping": 20,
+    "Delivered": 19,
+    "Order Received, but buyer can raise return/refund until 2026-04-28": 7,
+    "Order Received, but buyer can raise return/refund until 2026-04-26": 6,
+    "To ship": 4,
+    "Completed": 2,
+    "Order Received, but buyer can raise return/refund until 2026-04-25": 2,
+    "Order Received, but buyer can raise return/refund until 2026-04-27": 2,
+    "Order Received, but buyer can raise return/refund until 2026-04-29": 1,
+    "Order Received, but buyer can raise return/refund until 2026-04-30": 1
+  },
+  "april_current_catalog_status_counts": {
+    "Delivered": 7,
+    "Shipping": 4,
+    "Cancelled": 2,
+    "Order Received, but buyer can raise return/refund until 2026-04-29": 1,
+    "To ship": 1
+  },
+  "april_all_rows": 86,
+  "april_positive_demand_rows": 2,
+  "april_noncancelled_zero_demand_rows": 62,
+  "fixed_window_activity_diagnostics": [
+    {
+      "cutoff": "2025-12-31",
+      "current_catalog_products_positive_30d": 3,
+      "all_products_positive_30d": 13
+    },
+    {
+      "cutoff": "2026-01-31",
+      "current_catalog_products_positive_30d": 8,
+      "all_products_positive_30d": 22
+    },
+    {
+      "cutoff": "2026-02-28",
+      "current_catalog_products_positive_30d": 12,
+      "all_products_positive_30d": 36
+    },
+    {
+      "cutoff": "2026-03-31",
+      "current_catalog_products_positive_30d": 11,
+      "all_products_positive_30d": 20
+    },
+    {
+      "cutoff": "2026-04-24",
+      "current_catalog_products_positive_30d": 0,
+      "all_products_positive_30d": 2
+    }
+  ],
+  "forecast_winning_methods": {
+    "Exponential Smoothing": 30,
+    "Linear Regression": 19,
+    "Moving Average": 11
+  },
+  "forecast_rows": 420,
+  "forecast_all_exact_zero": true,
+  "forecast_end": "2026-04-24 00:00:00",
+  "validation_actual_nonzero_rows": 0,
+  "validation_rows": 17430
+}

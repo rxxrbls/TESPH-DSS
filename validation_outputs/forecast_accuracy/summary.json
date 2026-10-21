@@ -1,0 +1,39 @@
+{
+  "audit_date": "2026-10-08",
+  "dataset_sha256": "66b3aa57d6bb4352e04399370ba602fd368e378994dbf6fe38d343480502917e",
+  "transaction_rows": 226203,
+  "validation_rows": 17136,
+  "metric_rows": 177,
+  "forecast_skus": 59,
+  "forecast_rows": 413,
+  "selected_methods": {
+    "Exponential Smoothing": 30,
+    "Linear Regression": 19,
+    "Moving Average": 10
+  },
+  "constant_actual_skus": 59,
+  "undefined_r2_rows": 177,
+  "exact_zero_mae_rows": 138,
+  "small_nonzero_mae_rows": 30,
+  "metric_ranges": {
+    "MAE": {
+      "min": 0.0,
+      "max": 0.1844938616
+    },
+    "RMSE": {
+      "min": 0.0,
+      "max": 0.1847690964
+    },
+    "MAPE": {
+      "min": 0.0,
+      "max": 18.4493861634
+    },
+    "R2": {
+      "min": null,
+      "max": null
+    }
+  },
+  "history_end": "2026-04-24 00:00:00",
+  "checks": "PASS: independent metrics, common holdout coverage, source actuals, model selection, forecast metric propagation, Streamlit page values",
+  "elapsed_seconds": 38.939
+}

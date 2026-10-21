@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 import utils.analytics_display as analytics_display
 import utils.state as state
@@ -11,6 +12,7 @@ def test_new_dataset_clears_stock_dependent_state(monkeypatch):
         "inventory_validation": {"valid": True},
         "risk_results": pd.DataFrame({"Stock-Out Risk": ["High"]}),
         "mca_results": pd.DataFrame({"SKU Priority Score": [0.8]}),
+        "mca_sensitivity": pd.DataFrame({"Rank Change": [1]}),
         "recommendation_results": pd.DataFrame({"Recommended Quantity": [4]}),
         "forecast_results": {"forecast_output": pd.DataFrame({"SKU": ["SKU-1"]})},
         "forecast_error_message": None,
@@ -27,6 +29,8 @@ def test_new_dataset_clears_stock_dependent_state(monkeypatch):
         "inventory_validation": None,
         "risk_results": None,
         "mca_results": None,
+        "mca_audit": None,
+        "mca_sensitivity": None,
         "recommendation_results": None,
         "forecast_results": None,
         "forecast_dataset_id": None,
@@ -83,6 +87,71 @@ def test_empty_forecast_result_is_still_valid_for_active_dataset(monkeypatch):
     monkeypatch.setattr(state.st, "session_state", values)
 
     assert state.has_valid_forecast_for_active_dataset() is True
+
+
+def test_integrated_forecast_uses_active_catalog_mapping(monkeypatch):
+    transactions = pd.DataFrame({"Order ID": ["O-1"]})
+    mapping = pd.DataFrame({"product_key": ["P-1"], "SKU": ["SKU-1"]})
+    review = pd.DataFrame({"Reason": ["Eligible current catalog match"]})
+    captured = {}
+
+    monkeypatch.setattr(
+        "active_inventory.build_active_mapping",
+        lambda frame: (mapping, review) if frame is transactions else pytest.fail("wrong transaction input"),
+    )
+
+    def run_forecast(frame, *, mapping=None):
+        captured["frame"] = frame
+        captured["mapping"] = mapping
+        return {"forecast_output": pd.DataFrame({"SKU": ["SKU-1"]})}
+
+    monkeypatch.setattr("forecasting_pipeline.run_forecasting_pipeline", run_forecast)
+
+    result = state.run_active_forecasting_pipeline(transactions)
+
+    assert captured["frame"] is transactions
+    assert captured["mapping"] is mapping
+    assert result["inventory_review"] is review
+    assert result["forecast_output"]["SKU"].tolist() == ["SKU-1"]
+
+
+@pytest.mark.parametrize(
+    ("include_analytics", "include_forecast", "expected"),
+    [
+        (True, False, {"analytics"}),
+        (False, True, {"forecast"}),
+        (True, True, {"analytics", "forecast"}),
+    ],
+)
+def test_derived_output_initializer_computes_only_requested_families(
+    monkeypatch, include_analytics, include_forecast, expected
+):
+    values = {
+        "active_dataset_id": "dataset-a",
+        "data_status": state.DataStatus.DATA_READY.value,
+        "prepared_transactions": pd.DataFrame({"Order ID": ["O-1"]}),
+    }
+    calls = set()
+    monkeypatch.setattr(state.st, "session_state", values)
+    monkeypatch.setattr(state, "restore_runtime_authority", lambda: None)
+
+    def analytics(_transactions):
+        calls.add("analytics")
+        return {"sales_summary": pd.DataFrame({"Gross Revenue": [1]})}
+
+    def forecast(_transactions):
+        calls.add("forecast")
+        return {"forecast_output": pd.DataFrame({"SKU": ["SKU-1"]})}
+
+    monkeypatch.setattr("analytics_pipeline.run_analytics_pipeline", analytics)
+    monkeypatch.setattr(state, "run_active_forecasting_pipeline", forecast)
+
+    state.ensure_derived_outputs_for_active_dataset(
+        include_analytics=include_analytics,
+        include_forecast=include_forecast,
+    )
+
+    assert calls == expected
 
 
     def test_persistence_error_message_does_not_blame_the_source_file(monkeypatch):

@@ -3,7 +3,7 @@ import pandas as pd
 from analytics.derived_metrics import DerivedMetricsCalculator
 
 
-def test_stock_out_frequency_counts_distinct_events():
+def test_stock_out_frequency_counts_observed_empty_days_as_percentage():
     stock_history = pd.DataFrame(
         {
             "product_key": [
@@ -39,10 +39,10 @@ def test_stock_out_frequency_counts_distinct_events():
     )
 
     assert result.loc[0, "product_key"] == "prd_001"
-    assert result.loc[0, "stock_out_frequency"] == 2
+    assert result.loc[0, "stock_out_frequency"] == 50
 
 
-def test_consecutive_zero_stock_counts_once():
+def test_consecutive_zero_stock_counts_each_observed_day():
     stock_history = pd.DataFrame(
         {
             "product_key": [
@@ -71,7 +71,7 @@ def test_consecutive_zero_stock_counts_once():
         .calculate_stock_out_frequency(stock_history)
     )
 
-    assert result.loc[0, "stock_out_frequency"] == 1
+    assert result.loc[0, "stock_out_frequency"] == 75
 
 
 def test_product_with_no_stock_out_returns_zero():

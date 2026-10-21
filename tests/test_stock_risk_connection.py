@@ -18,13 +18,13 @@ def test_critical_risk_is_consumed():
     assert result["target_stock_level"] == 150
     assert result["recommended_quantity"] == 150
     assert result["recommendation_priority"] == "Immediate"
-    assert result["recommendation"] == "Replenish to target"
+    assert result["recommendation"] == "Immediate Restock - Highest Priority"
 
 
 def test_high_risk_is_consumed():
     # DOI = 50 / 10 = 5 days
     # Lead Time = 7 days
-    # The configured seven-day DOI ceiling is Medium; action depends on quantity.
+    # DOI within lead time is High; the matrix combines risk with MCA priority.
     result = generate_recommendation_from_risk_inputs(
         priority="Medium",
         current_stock=50,
@@ -32,11 +32,11 @@ def test_high_risk_is_consumed():
         supplier_lead_time=7,
     )
 
-    assert result["risk"] == "Medium"
+    assert result["risk"] == "High"
     assert result["target_stock_level"] == 150
     assert result["recommended_quantity"] == 100
-    assert result["recommendation_priority"] == "Medium"
-    assert result["recommendation"] == "Replenish to target"
+    assert result["recommendation_priority"] == "High"
+    assert result["recommendation"] == "Restock"
 
 
 def test_no_demand_risk_is_consumed():
@@ -50,4 +50,4 @@ def test_no_demand_risk_is_consumed():
     assert result["risk"] == "No Forecast Demand"
     assert result["recommended_quantity"] == 0
     assert result["recommendation_priority"] == "None"
-    assert result["recommendation"] == "Monitor; no forecast demand"
+    assert result["recommendation"] == "No Immediate Restock / Monitor Demand"

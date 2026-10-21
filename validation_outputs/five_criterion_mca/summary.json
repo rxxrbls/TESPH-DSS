@@ -1,0 +1,29 @@
+{
+  "audit_date": "2026-10-12",
+  "criteria": [
+    "Sales Velocity",
+    "Profit Margin",
+    "Supplier Lead Time",
+    "Forecasted Demand",
+    "Return Rate"
+  ],
+  "weights": {
+    "Sales Velocity": 0.2,
+    "Profit Margin": 0.2,
+    "Supplier Lead Time": 0.2,
+    "Forecasted Demand": 0.2,
+    "Return Rate": 0.2
+  },
+  "transaction_rows": 226203,
+  "transaction_sha256": "66b3aa57d6bb4352e04399370ba602fd368e378994dbf6fe38d343480502917e",
+  "stock_sha256": "0533116623a5fe64e72ba550a024c617c1a862fcbef10395f942f1bac15ad61a",
+  "forecast_skus": 59,
+  "scored_skus": 0,
+  "risk_rows": 59,
+  "recommendation_rows": 59,
+  "status_counts": {
+    "Unavailable: Profit Margin, Supplier Lead Time, Return Rate": 59
+  },
+  "checks": "PASS: no substituted scores; missing-input audit; historical stock not required; real-data frontend audit matches backend",
+  "input_limitations": "No reconciled net-sales/cost ledger, documented supplier lead times or explicit MCA period supplied. The optional MCA lead-time fallback is not approved or enabled. Current catalog is used only for the existing sample mapping/risk path."
+}

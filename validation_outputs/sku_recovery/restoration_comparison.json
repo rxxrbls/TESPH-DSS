@@ -1,0 +1,55 @@
+{
+  "changed_transaction_references": 112,
+  "changed_product_keys": 6,
+  "source_transaction_sha256": "66b3aa57d6bb4352e04399370ba602fd368e378994dbf6fe38d343480502917e",
+  "before": {
+    "accepted_catalog_skus": 65,
+    "transaction_rows_in_accepted_mapping": 587,
+    "gross_demand_units_in_accepted_mapping": 738.0,
+    "forecast_skus": 60,
+    "forecast_rows": 420,
+    "nonzero_forecast_rows": 0,
+    "return_lines_in_accepted_mapping": 1,
+    "refunded_lines_in_accepted_mapping": 0,
+    "mca_scores": 59,
+    "mca_readiness": {
+      "Ready": 59,
+      "Unavailable: Recorded Return/Refund Quantity Rate": 1
+    },
+    "catalog_exclusion_reasons": {
+      "Missing source SKU": 1712,
+      "Missing or duplicate product key": 111,
+      "Reused SKU: stock pool unresolved": 90,
+      "Eligible current catalog match": 65,
+      "Historical/current SKU conflict": 2
+    }
+  },
+  "after": {
+    "accepted_catalog_skus": 67,
+    "transaction_rows_in_accepted_mapping": 597,
+    "gross_demand_units_in_accepted_mapping": 751.0,
+    "forecast_skus": 62,
+    "forecast_rows": 434,
+    "nonzero_forecast_rows": 0,
+    "return_lines_in_accepted_mapping": 1,
+    "refunded_lines_in_accepted_mapping": 0,
+    "mca_scores": 61,
+    "mca_readiness": {
+      "Ready": 61,
+      "Unavailable: Recorded Return/Refund Quantity Rate": 1
+    },
+    "catalog_exclusion_reasons": {
+      "Missing source SKU": 1712,
+      "Missing or duplicate product key": 111,
+      "Reused SKU: stock pool unresolved": 90,
+      "Eligible current catalog match": 67
+    }
+  },
+  "existing_sku_forecasts_unchanged": true,
+  "new_catalog_product_keys": [
+    "prd_47e41dec33aded2ff31fe11a8c497d4ccd015fb9f3d3e3798cb75a8e61f54d58",
+    "prd_9d437e47e8fd81ccfc9ffedf3d3b3ffe5fc6bf8c16063e9b3fe0d26ce7fe2ae6"
+  ],
+  "working_files_unchanged": true,
+  "source_unchanged": true
+}

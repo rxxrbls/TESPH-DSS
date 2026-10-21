@@ -25,14 +25,21 @@ def classify_stock_out_risk(
     average_daily_forecast_demand,
     supplier_lead_time=None,
 ):
-    """Compatibility adapter; product-specific lead times are not accepted."""
+    """Compatibility adapter using a supplied or configured supplier lead time."""
 
-    if supplier_lead_time is not None and supplier_lead_time != REPLENISHMENT_CONFIG.supplier_lead_time_days:
-        raise ValueError("Use the configured system-level supplier lead time")
+    lead_time = (
+        REPLENISHMENT_CONFIG.supplier_lead_time_days
+        if supplier_lead_time is None
+        else supplier_lead_time
+    )
     forecast_demand = average_daily_forecast_demand * FORECAST_HORIZON
     result = calculate_stock_out_risk(
         pd.DataFrame({"SKU": ["SKU"], "Forecast": [forecast_demand]}),
-        pd.DataFrame({"SKU": ["SKU"], "Current Stock": [current_stock]}),
+        pd.DataFrame({
+            "SKU": ["SKU"],
+            "Current Stock": [current_stock],
+            "Supplier Lead Time": [lead_time],
+        }),
         item_columns=["SKU"],
         forecast_horizon_days=FORECAST_HORIZON,
         thresholds=STOCK_RISK_THRESHOLDS,
@@ -50,15 +57,15 @@ def calculate_days_of_inventory(
 
     return _calculate_days_of_inventory(current_stock, average_daily_forecast_demand)
 
-def classify_mca_priority(priority_score):
-    """Classify MCA scores using the fixed one-third bands."""
+def classify_mca_priority(priority_rank, total_skus):
+    """Classify one SKU by its rank within the scored SKU population."""
 
-    return _classify_mca_priority(priority_score)
+    return _classify_mca_priority(priority_rank, total_skus)
 
-def generate_recommendation(recommended_quantity, risk):
+def generate_recommendation(recommended_quantity, risk, mca_priority=None):
     """Compatibility name for the shared action-label rule."""
 
-    return _recommendation_action(recommended_quantity, risk)
+    return _recommendation_action(recommended_quantity, risk, mca_priority)
 
 # KAN-239 - CONNECT STOCK-OUT RISK OUTPUT
 def generate_recommendation_from_risk_inputs(
@@ -76,6 +83,7 @@ def generate_recommendation_from_risk_inputs(
     target_stock_level = calculate_target_stock_level(
         forecast_demand,
         forecast_horizon_days=FORECAST_HORIZON,
+        lead_time_days=supplier_lead_time,
     )
     recommended_quantity = calculate_replenishment_quantity(
         target_stock_level, current_stock
@@ -85,7 +93,7 @@ def generate_recommendation_from_risk_inputs(
         "risk": risk,
         "target_stock_level": target_stock_level,
         "recommended_quantity": recommended_quantity,
-        "recommendation": generate_recommendation(recommended_quantity, risk),
+        "recommendation": generate_recommendation(recommended_quantity, risk, priority),
         "recommendation_priority": classify_recommendation_priority(
             recommended_quantity, risk, priority
         ),

@@ -31,6 +31,7 @@ class InventoryConfig:
     data_start_row: int = 7
     expected_columns: tuple[str, ...] = INVENTORY_COLUMNS
     stock_as_of: date | datetime | None = None  # Client supplied; never inferred.
+    stock_definition_confirmed: bool = False  # User confirms Stock is net sellable units.
 
     def __post_init__(self):
         object.__setattr__(self, "source_path", Path(self.source_path))
@@ -38,6 +39,8 @@ class InventoryConfig:
             raise ValueError("Inventory data_start_row must follow the header_row")
         if self.stock_as_of is not None and not isinstance(self.stock_as_of, date):
             raise ValueError("stock_as_of must be a client-supplied date/datetime or None")
+        if not isinstance(self.stock_definition_confirmed, bool):
+            raise ValueError("stock_definition_confirmed must be a boolean")
 
 
 # Exact baseline spellings. These are schema contracts, not column rename rules.

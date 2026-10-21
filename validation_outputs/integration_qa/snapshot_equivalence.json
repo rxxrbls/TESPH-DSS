@@ -1,0 +1,50 @@
+{
+  "passed": true,
+  "tables": {
+    "prepared_transactions": {
+      "before_rows": 226203,
+      "after_rows": 226203,
+      "before_only": 0,
+      "after_only": 0
+    },
+    "fact_sales": {
+      "before_rows": 226203,
+      "after_rows": 226203,
+      "before_only": 0,
+      "after_only": 0
+    },
+    "dim_product": {
+      "before_rows": 2116,
+      "after_rows": 2116,
+      "before_only": 0,
+      "after_only": 0
+    },
+    "dim_date": {
+      "before_rows": 2004,
+      "after_rows": 2004,
+      "before_only": 0,
+      "after_only": 0
+    },
+    "dim_order": {
+      "before_rows": 133586,
+      "after_rows": 133586,
+      "before_only": 0,
+      "after_only": 0
+    },
+    "dim_shipping": {
+      "before_rows": 132344,
+      "after_rows": 132344,
+      "before_only": 0,
+      "after_only": 0
+    },
+    "dim_payment": {
+      "before_rows": 7,
+      "after_rows": 7,
+      "before_only": 0,
+      "after_only": 0
+    }
+  },
+  "governed_baseline_sha256": "66b3aa57d6bb4352e04399370ba602fd368e378994dbf6fe38d343480502917e",
+  "chunked_restore": "Exact frame/dtype/index equality with original full-table SQL read",
+  "comparison": "All columns and rowid, both directions; counts and duplicate multiplicity preserved"
+}

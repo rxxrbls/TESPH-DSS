@@ -17,6 +17,18 @@ def test_stock_recency_default_uses_configured_maximum_age():
     assert validate_stock_as_of(today - timedelta(days=threshold + 1))["is_stale"]
 
 
+def test_missing_and_future_stock_dates_are_rejected():
+    today = date.today()
+
+    missing = validate_stock_as_of(None)
+    future = validate_stock_as_of(today + timedelta(days=1))
+
+    assert missing["valid"] is False
+    assert "Stock As-Of Date is required" in missing["issues"]
+    assert future["valid"] is False
+    assert "Stock As-Of Date cannot be in the future" in future["issues"]
+
+
 def test_approved_stock_source_loads():
     stock_df = load_current_stock()
 

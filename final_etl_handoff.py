@@ -64,7 +64,12 @@ def stable_hash(prefix, values):
 
 
 def frame_keys(frame, columns, prefix):
-    return frame[columns].apply(lambda row: stable_hash(prefix, row.tolist()), axis=1)
+    # Avoid constructing an Arrow-backed Series for every source row. Materialize
+    # the common row representation once; keep the hash payload unchanged.
+    values = frame[columns].to_numpy()
+    if pd.api.types.is_datetime64_any_dtype(values.dtype):
+        values = frame[columns].to_numpy(dtype=object)
+    return pd.Series([stable_hash(prefix, row) for row in values], index=frame.index)
 
 
 def unique_source_values(series):
@@ -168,7 +173,10 @@ def create_dim_order(prepared):
         if len(conflicting_orders):
             joined = work[work["Order ID"].isin(conflicting_orders)].groupby("Order ID", dropna=False)[field].agg(unique_source_values)
             result.loc[joined.index, field] = joined
-    conflict_lists = counts.gt(1).apply(lambda row: " | ".join(row.index[row].tolist()), axis=1)
+    conflict_lists = pd.Series(
+        [" | ".join(field for field, conflict in zip(ORDER_FIELDS, row) if conflict)
+         for row in counts.gt(1).to_numpy()], index=counts.index,
+    )
     result["has_order_attribute_conflict"] = conflict_lists.ne("")
     result["conflicting_order_attributes"] = conflict_lists.replace("", pd.NA)
     return result.reset_index()

@@ -10,7 +10,8 @@ def test_return_order_indicators_connect_to_mca():
     return_indicators = pd.DataFrame(
         {
             "Product Key": ["prd_001", "prd_002"],
-            "Return Order Rate": [0.10, 0.25],
+            "Returned Quantity": [1, 5],
+            "Gross Demand": [10, 20],
         }
     )
 
@@ -24,10 +25,10 @@ def test_return_order_indicators_connect_to_mca():
     ]
 
     assert result.loc[0, "product_key"] == "prd_001"
-    assert result.loc[0, "return_rate"] == pytest.approx(0.10)
+    assert result.loc[0, "return_rate"] == pytest.approx(10)
 
     assert result.loc[1, "product_key"] == "prd_002"
-    assert result.loc[1, "return_rate"] == pytest.approx(0.25)
+    assert result.loc[1, "return_rate"] == pytest.approx(25)
 
 
 def test_missing_return_order_columns_raise_error():

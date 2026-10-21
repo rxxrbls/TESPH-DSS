@@ -1,0 +1,39 @@
+{
+  "assessment_date": "2026-10-20",
+  "baselines": [
+    {
+      "source": "validation_outputs\\five_criterion_mca\\mca_audit.csv",
+      "source_sha256": "715124d91a557d632186b700991b8519a26285900aa3e57b666f92cecef181e3",
+      "source_checkpoint": "2026-10-12 saved baseline; not a new current-date forecast",
+      "rows": 59,
+      "finite_pairs": 59,
+      "excluded_nonfinite": 0,
+      "distinct_values": {
+        "Sales Velocity": 8,
+        "Forecasted Demand": 1
+      },
+      "exact_zero_forecasts": 59,
+      "pearson_r": null,
+      "spearman_rho": null,
+      "status": "Inconclusive: insufficient pairs or a constant criterion",
+      "interpretation": "Undefined correlation is not evidence of independence. This is a pre-eligibility input diagnostic, not a complete three-criterion ranking validation."
+    },
+    {
+      "source": "validation_outputs\\five_criterion_mca\\uploaded_stock_mca_audit.csv",
+      "source_sha256": "ba43f8c5cbcc58c3b0d86b2b74d1bda5b287a233ae18ff5a4fdd95467b49da07",
+      "source_checkpoint": "2026-10-12 saved baseline; not a new current-date forecast",
+      "rows": 60,
+      "finite_pairs": 60,
+      "excluded_nonfinite": 0,
+      "distinct_values": {
+        "Sales Velocity": 8,
+        "Forecasted Demand": 1
+      },
+      "exact_zero_forecasts": 60,
+      "pearson_r": null,
+      "spearman_rho": null,
+      "status": "Inconclusive: insufficient pairs or a constant criterion",
+      "interpretation": "Undefined correlation is not evidence of independence. This is a pre-eligibility input diagnostic, not a complete three-criterion ranking validation."
+    }
+  ]
+}

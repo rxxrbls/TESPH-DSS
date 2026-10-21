@@ -12,7 +12,7 @@ from src.prescriptive.mca import (
 
 
 def test_equal_weights_have_no_unsubstantiated_differences():
-    assert MCA_WEIGHTS == {criterion: 1 / 6 for criterion in MCA_WEIGHTS}
+    assert MCA_WEIGHTS == {criterion: 1 / 5 for criterion in MCA_WEIGHTS}
 
     assert sum(MCA_WEIGHTS.values()) == pytest.approx(1.0)
 
@@ -20,27 +20,24 @@ def test_equal_weights_have_no_unsubstantiated_differences():
 def test_normalized_values_and_priority_score():
     sku_values = {
         "Sales Velocity": 60,
-        "Gross Revenue": 40,
+        "Profit Margin": 40,
         "Supplier Lead Time": 10,
-        "Projected Stock-Out Risk": 5,
         "Forecasted Demand": 80,
         "Return Rate": 4,
     }
 
     dataset_minimums = {
         "Sales Velocity": 20,
-        "Gross Revenue": 20,
+        "Profit Margin": 20,
         "Supplier Lead Time": 5,
-        "Projected Stock-Out Risk": 1,
         "Forecasted Demand": 40,
         "Return Rate": 2,
     }
 
     dataset_maximums = {
         "Sales Velocity": 100,
-        "Gross Revenue": 60,
+        "Profit Margin": 60,
         "Supplier Lead Time": 15,
-        "Projected Stock-Out Risk": 9,
         "Forecasted Demand": 120,
         "Return Rate": 10,
     }
@@ -56,42 +53,38 @@ def test_normalized_values_and_priority_score():
     # Return Rate (Cost) = 0.75
 
     assert result["normalized_scores"]["Sales Velocity"] == 0.5
-    assert result["normalized_scores"]["Gross Revenue"] == 0.5
+    assert result["normalized_scores"]["Profit Margin"] == 0.5
     assert result["normalized_scores"]["Supplier Lead Time"] == 0.5
-    assert result["normalized_scores"]["Projected Stock-Out Risk"] == 0.5
     assert result["normalized_scores"]["Forecasted Demand"] == 0.5
     assert result["normalized_scores"]["Return Rate"] == 0.75
 
     # Expected weighted score:
-    # Five criteria score 0.50 and Return Rate scores 0.75, all weighted 1/6.
+    # Four criteria score 0.50 and Return Rate scores 0.75, all weighted 20%.
 
-    assert result["priority_score"] == pytest.approx(0.5416666667)
+    assert result["priority_score"] == pytest.approx(0.55)
 
 
 def test_weighted_contributions():
     sku_values = {
         "Sales Velocity": 60,
-        "Gross Revenue": 40,
+        "Profit Margin": 40,
         "Supplier Lead Time": 10,
-        "Projected Stock-Out Risk": 5,
         "Forecasted Demand": 80,
         "Return Rate": 4,
     }
 
     dataset_minimums = {
         "Sales Velocity": 20,
-        "Gross Revenue": 20,
+        "Profit Margin": 20,
         "Supplier Lead Time": 5,
-        "Projected Stock-Out Risk": 1,
         "Forecasted Demand": 40,
         "Return Rate": 2,
     }
 
     dataset_maximums = {
         "Sales Velocity": 100,
-        "Gross Revenue": 60,
+        "Profit Margin": 60,
         "Supplier Lead Time": 15,
-        "Projected Stock-Out Risk": 9,
         "Forecasted Demand": 120,
         "Return Rate": 10,
     }
@@ -104,12 +97,11 @@ def test_weighted_contributions():
 
     contributions = result["weighted_contributions"]
 
-    assert contributions["Sales Velocity"] == pytest.approx(1 / 12)
-    assert contributions["Gross Revenue"] == pytest.approx(1 / 12)
-    assert contributions["Supplier Lead Time"] == pytest.approx(1 / 12)
-    assert contributions["Projected Stock-Out Risk"] == pytest.approx(1 / 12)
-    assert contributions["Forecasted Demand"] == pytest.approx(1 / 12)
-    assert contributions["Return Rate"] == pytest.approx(0.125)
+    assert contributions["Sales Velocity"] == pytest.approx(1 / 10)
+    assert contributions["Profit Margin"] == pytest.approx(1 / 10)
+    assert contributions["Supplier Lead Time"] == pytest.approx(1 / 10)
+    assert contributions["Forecasted Demand"] == pytest.approx(1 / 10)
+    assert contributions["Return Rate"] == pytest.approx(0.15)
 
 
 def test_product_ranking():

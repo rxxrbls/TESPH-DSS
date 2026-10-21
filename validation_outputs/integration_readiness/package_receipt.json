@@ -1,0 +1,8 @@
+{
+  "snapshot_id": "3c3017d02301acbf381af67213f18517302762b312779aca81c140a8b89cf66c",
+  "source_file_count": 215,
+  "archive_sha256": "81e676519a8045ab58a962c063d0c112e213dcd94b0ff1985757437b43d01236",
+  "archive_bytes": 2588613,
+  "archive": "C:\\B\\College\\4TH YEAR\\CAPSTONE\\TESPH-DSS\\.artifacts\\integration_candidate\\tesph_sku_corrected_readiness_candidate.zip",
+  "checks": "ZIP integrity and every source checksum verified"
+}

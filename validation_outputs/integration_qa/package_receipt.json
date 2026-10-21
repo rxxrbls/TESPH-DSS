@@ -1,0 +1,8 @@
+{
+  "snapshot_id": "2e3256a0809f857b8598e047e29744ca4730cf7932a3a9b6c2268b5d09f22bd2",
+  "source_file_count": 164,
+  "archive_sha256": "91d39adef4f53efa1de1a091c5c3bf8cd7a1f23bf32fc0ef2e85f3ce01d482ca",
+  "archive_bytes": 1763677,
+  "archive": "C:\\B\\College\\4TH YEAR\\CAPSTONE\\TESPH-DSS\\.artifacts\\integration_candidate\\tesph_integration_candidate.zip",
+  "checks": "ZIP integrity and every source checksum verified"
+}

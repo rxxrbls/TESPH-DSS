@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping
 from decimal import Decimal, InvalidOperation
+from math import ceil
 from pathlib import Path
 import re
 import zipfile
@@ -23,8 +24,8 @@ from etl import find_column, product_key, standardize_product_value
 from methodology_config import (
     MCA_CRITERIA as CONFIG_MCA_CRITERIA,
     MCA_DIRECTIONS,
-    MCA_HIGH_PRIORITY_MIN,
-    MCA_MEDIUM_PRIORITY_MIN,
+    MCA_HIGH_AND_MEDIUM_FRACTION,
+    MCA_HIGH_PRIORITY_FRACTION,
     MCA_WEIGHTS,
     REPLENISHMENT_CONFIG,
     RISK_INDEX_MISSING_STOCK_VALUE,
@@ -836,6 +837,30 @@ def calculate_stock_out_risk(
     ):
         raise ValueError("Forecast must contain finite non-negative values")
     stock = inventory[[*item_columns, current_stock_column]].copy()
+    lead_time_column = "Supplier Lead Time"
+    if lead_time_column in inventory.columns:
+        stock[lead_time_column] = pd.to_numeric(inventory[lead_time_column], errors="coerce")
+        supplied_lead_time = stock[lead_time_column].notna()
+        if (
+            stock.loc[supplied_lead_time, lead_time_column].le(0).any()
+            or not np.isfinite(
+                stock.loc[supplied_lead_time, lead_time_column].to_numpy(dtype=float)
+            ).all()
+        ):
+            raise ValueError("Supplier lead time must be finite and positive")
+        stock[lead_time_column] = stock[lead_time_column].fillna(
+            thresholds.supplier_lead_time_days
+        )
+        stock["Supplier Lead Time Source"] = np.where(
+            supplied_lead_time,
+            "Per-SKU Supplier Lead Time",
+            f"Fallback {thresholds.supplier_lead_time_days:g}-Day Default Used",
+        )
+    else:
+        stock[lead_time_column] = thresholds.supplier_lead_time_days
+        stock["Supplier Lead Time Source"] = (
+            f"Fallback {thresholds.supplier_lead_time_days:g}-Day Default Used"
+        )
     stock[current_stock_column] = pd.to_numeric(stock[current_stock_column], errors="coerce")
     finite_stock = np.isfinite(stock[current_stock_column].fillna(0).to_numpy(dtype=float))
     invalid_stock = stock[current_stock_column].notna() & (
@@ -877,13 +902,14 @@ def calculate_stock_out_risk(
     )
 
     doi = result["Days of Inventory"]
+    supplier_lead_time = result[lead_time_column]
     result["Stock-Out Risk"] = np.select(
         [
             ~positive_demand,
             ~has_stock,
-            doi.le(thresholds.critical_max_days),
-            doi.le(thresholds.high_max_days),
-            doi.le(thresholds.medium_max_days),
+            result[CURRENT_STOCK_COLUMN].le(0),
+            doi.le(supplier_lead_time),
+            doi.le(supplier_lead_time * thresholds.medium_buffer_multiplier),
         ],
         [
             "No Forecast Demand",
@@ -899,6 +925,8 @@ def calculate_stock_out_risk(
         "Forecast Demand",
         "Forecast Daily Demand",
         "Days of Inventory",
+        lead_time_column,
+        "Supplier Lead Time Source",
         "Stock Gap",
         "Risk Index",
         "Stock-Out Risk",
@@ -915,10 +943,13 @@ def calculate_mca_scores(
     identifier_columns: Iterable[str],
     weights: Mapping[str, float] | None = None,
     directions: Mapping[str, str] | None = None,
+    criteria: Iterable[str] | None = None,
 ) -> pd.DataFrame:
     """Return normalized criterion contributions and deterministic SKU ranking."""
 
     identifier_columns = list(identifier_columns)
+    # Explicit alternative policies reuse the same normalization/ranking rules.
+    MCA_CRITERIA = tuple(CONFIG_MCA_CRITERIA if criteria is None else criteria)
     if not identifier_columns:
         raise ValueError("At least one MCA identifier column is required")
     weights = MCA_WEIGHTS if weights is None else weights
@@ -958,7 +989,7 @@ def calculate_mca_scores(
         maximum = float(values.max())
         normalized_name = f"Normalized {criterion}"
         normalized_columns.append(normalized_name)
-        if np.isclose(maximum, minimum):
+        if maximum == minimum:
             result[normalized_name] = 0.5
         elif directions[criterion] == "benefit":
             result[normalized_name] = (values - minimum) / (maximum - minimum)
@@ -972,17 +1003,14 @@ def calculate_mca_scores(
         contribution_columns.append(contribution_name)
         result[contribution_name] = float(weights[criterion]) * result[normalized_name]
         result["SKU Priority Score"] += result[contribution_name]
-    result["Priority Level"] = np.select(
-        [
-            result["SKU Priority Score"].ge(MCA_HIGH_PRIORITY_MIN),
-            result["SKU Priority Score"].ge(MCA_MEDIUM_PRIORITY_MIN),
-        ],
-        ["High", "Medium"],
-        default="Low",
-    )
     result = rank_priority_scores(
         result, identifier_columns=identifier_columns, score_column="SKU Priority Score"
     )
+    total_skus = len(result)
+    result["Priority Level"] = [
+        classify_mca_priority(rank, total_skus)
+        for rank in result["Priority Rank"]
+    ]
     ordered = [
         *identifier_columns,
         *MCA_CRITERIA,
@@ -1019,14 +1047,25 @@ def rank_priority_scores(
     return result
 
 
-def classify_mca_priority(score: float) -> str:
-    """Classify the 0..1 weighted score into fixed, explainable thirds."""
+def classify_mca_priority(priority_rank: int, total_skus: int) -> str:
+    """Assign ranked SKUs to deterministic 25/50/25 priority groups.
 
-    if not np.isfinite(score) or not 0 <= score <= 1:
-        raise ValueError("MCA score must be finite and between 0 and 1")
-    if score >= MCA_HIGH_PRIORITY_MIN:
+    Fractional cutoffs use ceiling so the top and cumulative top groups include
+    the nearest whole SKU. Exact score ties are ordered by identifier first in
+    ``rank_priority_scores`` and can therefore straddle a class boundary.
+    """
+
+    if isinstance(priority_rank, bool) or not isinstance(priority_rank, (int, np.integer)):
+        raise ValueError("Priority rank must be an integer")
+    if isinstance(total_skus, bool) or not isinstance(total_skus, (int, np.integer)):
+        raise ValueError("Total SKU count must be an integer")
+    if total_skus < 1 or priority_rank < 1 or priority_rank > total_skus:
+        raise ValueError("Priority rank must be between 1 and total SKU count")
+    high_end = ceil(total_skus * MCA_HIGH_PRIORITY_FRACTION)
+    high_medium_end = ceil(total_skus * MCA_HIGH_AND_MEDIUM_FRACTION)
+    if priority_rank <= high_end:
         return "High"
-    if score >= MCA_MEDIUM_PRIORITY_MIN:
+    if priority_rank <= high_medium_end:
         return "Medium"
     return "Low"
 
@@ -1048,7 +1087,7 @@ def calculate_weighted_contributions(
 
 
 def calculate_priority_score(weighted_contributions: Mapping[str, float]) -> float:
-    """Sum the six weighted contributions into one priority score."""
+    """Sum the five weighted contributions into one priority score."""
 
     missing = [criterion for criterion in MCA_CRITERIA if criterion not in weighted_contributions]
     if missing:
@@ -1077,7 +1116,7 @@ def calculate_sku_priority(
         "normalized_scores": normalized,
         "weighted_contributions": contributions,
         "priority_score": score,
-        "priority_level": classify_mca_priority(score),
+        "priority_level": None,
     }
 
 
@@ -1097,18 +1136,48 @@ def classify_recommendation_priority(
     levels = {"High": 3, "Medium": 2, "Low": 1}
     if stock_risk not in levels:
         raise ValueError(f"Unsupported stock-risk level for recommendation: {stock_risk}")
-    if mca_priority is not None and mca_priority not in levels:
+    has_mca_priority = mca_priority is not None and not pd.isna(mca_priority)
+    if has_mca_priority and mca_priority not in levels:
         raise ValueError(f"Unsupported MCA priority: {mca_priority}")
-    level = max(levels[stock_risk], levels.get(mca_priority, 1))
+    level = max(levels[stock_risk], levels.get(mca_priority, 1) if has_mca_priority else 1)
     return {3: "High", 2: "Medium", 1: "Low"}[level]
 
 
-def recommendation_action(recommended_quantity: float, stock_risk: str) -> str:
-    """Return the deterministic action label for a quantity and demand state."""
+def recommendation_action(
+    recommended_quantity: float,
+    stock_risk: str,
+    mca_priority: str | None = None,
+) -> str:
+    """Combine DOI urgency and MCA priority using the TA-approved matrix."""
 
-    if stock_risk == "No Forecast Demand":
-        return "Monitor; no forecast demand"
-    return "Replenish to target" if recommended_quantity > 0 else "Maintain stock"
+    if not np.isfinite(recommended_quantity) or recommended_quantity < 0:
+        raise ValueError("Recommended quantity must be finite and non-negative")
+    if stock_risk in {"No Forecast Demand", "No Immediate Demand Risk"}:
+        return "No Immediate Restock / Monitor Demand"
+    if mca_priority is None or pd.isna(mca_priority):
+        if stock_risk == "Critical":
+            return "Immediate Restock"
+        return "Replenish to target" if recommended_quantity > 0 else "Maintain Stock"
+    matrix = {
+        ("High", "Critical"): "Immediate Restock - Highest Priority",
+        ("High", "High"): "Restock - High Priority",
+        ("High", "Medium"): "Restock Soon",
+        ("High", "Low"): "Maintain Stock / Monitor",
+        ("Medium", "Critical"): "Immediate Restock",
+        ("Medium", "High"): "Restock",
+        ("Medium", "Medium"): "Monitor / Consider Restocking",
+        ("Medium", "Low"): "Maintain Stock",
+        ("Low", "Critical"): "Restock / Review Immediately",
+        ("Low", "High"): "Review for Restocking",
+        ("Low", "Medium"): "Monitor",
+        ("Low", "Low"): "Maintain Stock / Do Not Restock",
+    }
+    try:
+        return matrix[(str(mca_priority), str(stock_risk))]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unsupported recommendation inputs: {mca_priority!r}, {stock_risk!r}"
+        ) from exc
 
 
 def min_max_normalize(

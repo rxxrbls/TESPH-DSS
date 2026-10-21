@@ -1,0 +1,153 @@
+{
+  "approved_baseline": "equal_thirds",
+  "source_sha256": "e4e6ce36bdfcdb59b4bfe4f136429c703755d63d0152b327b6ebcda94682e4b2",
+  "refund_archive_sha256": "c7468d9b38805981122600e94ba4e105a3c44459aa5a17306e0082a9fb0f10ff",
+  "assessments": [
+    {
+      "eligible_skus": 56,
+      "excluded_skus": 1,
+      "pearson": 0.8707097666052164,
+      "spearman": 0.4572621655770205,
+      "correlation_status": "Computed; threshold requires TA interpretation",
+      "rank_changes": 0,
+      "group_changes": 0,
+      "max_absolute_rank_change": 0,
+      "policy_version": "three-criterion-provisional-v1",
+      "final_weights_locked": true,
+      "approved_baseline": "equal_thirds",
+      "final_validation_pending": true,
+      "criterion_unique_values": {
+        "Sales Velocity": 6,
+        "Forecasted Demand": 4,
+        "Recorded Return/Refund Quantity Rate": 1
+      },
+      "criterion_minimums": {
+        "Sales Velocity": 0.0,
+        "Forecasted Demand": 0.0,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "criterion_maximums": {
+        "Sales Velocity": 4.666666666666667,
+        "Forecasted Demand": 1.083294492684042,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "order_end": "2025-12-31",
+      "sales_rows": 225895,
+      "request_lines": 3696,
+      "nonzero_forecast_skus": 3,
+      "rank_changes_vs_sales_velocity_only": 11,
+      "forecast_at_least_0_01_units_skus": 3,
+      "magnitude_note": "0.01 units is a reporting diagnostic only; no scoring or eligibility threshold changed."
+    },
+    {
+      "eligible_skus": 56,
+      "excluded_skus": 1,
+      "pearson": 0.7660260599441339,
+      "spearman": 0.8472589391013681,
+      "correlation_status": "Computed; threshold requires TA interpretation",
+      "rank_changes": 0,
+      "group_changes": 0,
+      "max_absolute_rank_change": 0,
+      "policy_version": "three-criterion-provisional-v1",
+      "final_weights_locked": true,
+      "approved_baseline": "equal_thirds",
+      "final_validation_pending": true,
+      "criterion_unique_values": {
+        "Sales Velocity": 7,
+        "Forecasted Demand": 9,
+        "Recorded Return/Refund Quantity Rate": 1
+      },
+      "criterion_minimums": {
+        "Sales Velocity": 0.0,
+        "Forecasted Demand": 0.0,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "criterion_maximums": {
+        "Sales Velocity": 3.6666666666666665,
+        "Forecasted Demand": 14.0,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "order_end": "2026-01-31",
+      "sales_rows": 225966,
+      "request_lines": 3699,
+      "nonzero_forecast_skus": 8,
+      "rank_changes_vs_sales_velocity_only": 6,
+      "forecast_at_least_0_01_units_skus": 8,
+      "magnitude_note": "0.01 units is a reporting diagnostic only; no scoring or eligibility threshold changed."
+    },
+    {
+      "eligible_skus": 56,
+      "excluded_skus": 1,
+      "pearson": 0.7057606790540989,
+      "spearman": 0.7939932008807029,
+      "correlation_status": "Computed; threshold requires TA interpretation",
+      "rank_changes": 0,
+      "group_changes": 0,
+      "max_absolute_rank_change": 0,
+      "policy_version": "three-criterion-provisional-v1",
+      "final_weights_locked": true,
+      "approved_baseline": "equal_thirds",
+      "final_validation_pending": true,
+      "criterion_unique_values": {
+        "Sales Velocity": 7,
+        "Forecasted Demand": 8,
+        "Recorded Return/Refund Quantity Rate": 1
+      },
+      "criterion_minimums": {
+        "Sales Velocity": 0.0,
+        "Forecasted Demand": 0.0,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "criterion_maximums": {
+        "Sales Velocity": 5.666666666666667,
+        "Forecasted Demand": 1.5746836186295439,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "order_end": "2026-02-28",
+      "sales_rows": 226089,
+      "request_lines": 3703,
+      "nonzero_forecast_skus": 7,
+      "rank_changes_vs_sales_velocity_only": 6,
+      "forecast_at_least_0_01_units_skus": 5,
+      "magnitude_note": "0.01 units is a reporting diagnostic only; no scoring or eligibility threshold changed."
+    },
+    {
+      "eligible_skus": 57,
+      "excluded_skus": 1,
+      "pearson": 0.6225039486116367,
+      "spearman": 0.3135917076249251,
+      "correlation_status": "Computed; threshold requires TA interpretation",
+      "rank_changes": 0,
+      "group_changes": 0,
+      "max_absolute_rank_change": 0,
+      "policy_version": "three-criterion-provisional-v1",
+      "final_weights_locked": true,
+      "approved_baseline": "equal_thirds",
+      "final_validation_pending": true,
+      "criterion_unique_values": {
+        "Sales Velocity": 8,
+        "Forecasted Demand": 2,
+        "Recorded Return/Refund Quantity Rate": 1
+      },
+      "criterion_minimums": {
+        "Sales Velocity": 0.0,
+        "Forecasted Demand": 0.0,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "criterion_maximums": {
+        "Sales Velocity": 5.666666666666667,
+        "Forecasted Demand": 1.2599999999999923e-25,
+        "Recorded Return/Refund Quantity Rate": 0.0
+      },
+      "order_end": "2026-03-31",
+      "sales_rows": 226117,
+      "request_lines": 3703,
+      "nonzero_forecast_skus": 1,
+      "rank_changes_vs_sales_velocity_only": 0,
+      "forecast_at_least_0_01_units_skus": 0,
+      "magnitude_note": "0.01 units is a reporting diagnostic only; no scoring or eligibility threshold changed."
+    }
+  ],
+  "scope": "Expanded assessment across four earlier periods within available history, not additional sales after April 24. Retrospective mechanics only: September catalog is a fixed current-identity filter, not proof of historical stock/activity; October refund outcomes cannot reconstruct historical status availability. No risk/replenishment recommendations are published.",
+  "final_signoff": false
+}

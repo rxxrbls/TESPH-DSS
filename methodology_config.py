@@ -88,23 +88,21 @@ MAX_FORECAST_CATEGORIES = 3
 # ---------------------------------------------------------------------------
 # 10. Stock-Out Risk (KAN-54)
 # ---------------------------------------------------------------------------
+DEFAULT_SUPPLIER_LEAD_TIME_DAYS = 7
+MEDIUM_RISK_LEAD_TIME_MULTIPLIER = 1.5
+
 @dataclass(frozen=True)
 class StockRiskConfig:
-    """DOI bands aligned to immediate, near-term, and forecast-horizon exposure."""
-    critical_max_days: float = 1.0
-    high_max_days: float = 3.0
-    medium_max_days: float = float(FORECAST_HORIZON)
+    """TA-approved DOI bands, scaled to the SKU supplier lead time."""
+    supplier_lead_time_days: float = DEFAULT_SUPPLIER_LEAD_TIME_DAYS
+    medium_buffer_multiplier: float = MEDIUM_RISK_LEAD_TIME_MULTIPLIER
 
     def validate(self) -> None:
-        values = [
-            self.critical_max_days,
-            self.high_max_days,
-            self.medium_max_days,
-        ]
+        values = [self.supplier_lead_time_days, self.medium_buffer_multiplier]
         if any(not isfinite(float(value)) or float(value) < 0 for value in values):
-            raise ValueError("Stock-risk thresholds must be finite and non-negative")
-        if not self.critical_max_days < self.high_max_days < self.medium_max_days:
-            raise ValueError("DOI thresholds must increase from Critical to High to Medium")
+            raise ValueError("Stock-risk lead-time values must be finite and non-negative")
+        if self.supplier_lead_time_days <= 0 or self.medium_buffer_multiplier <= 1:
+            raise ValueError("Supplier lead time must be positive and the medium-risk buffer must exceed 1")
 
 
 STOCK_RISK_THRESHOLDS = StockRiskConfig()
@@ -116,7 +114,7 @@ RISK_INDEX_MISSING_STOCK_VALUE = float("nan")
 # cadence. These are transparent system-level defaults, never SKU-level facts.
 @dataclass(frozen=True)
 class ReplenishmentConfig:
-    supplier_lead_time_days: int = 7
+    supplier_lead_time_days: int = DEFAULT_SUPPLIER_LEAD_TIME_DAYS
     review_period_days: int = 7
     safety_stock_days: int = 1
     max_stock_age_days: int = 90
@@ -191,29 +189,26 @@ class ForecastConfig:
 # ---------------------------------------------------------------------------
 MCA_CRITERIA = (
     "Sales Velocity",
-    "Gross Revenue",
+    "Profit Margin",
     "Supplier Lead Time",
-    "Projected Stock-Out Risk",
     "Forecasted Demand",
     "Return Rate",
 )
 
 MCA_DIRECTIONS = {
     "Sales Velocity": "benefit",
-    "Gross Revenue": "benefit",
+    "Profit Margin": "benefit",
     "Supplier Lead Time": "cost",
-    "Projected Stock-Out Risk": "cost",
     "Forecasted Demand": "benefit",
     "Return Rate": "cost",
 }
 
-# No stakeholder-elicited or empirical evidence currently supports unequal
-# influence, so use equal weights until a documented review justifies otherwise.
+# User confirmed the five-criterion revision on 2026-10-12.
 MCA_WEIGHT_RATIONALE = (
-    "Equal weights are a transparent neutral baseline; no documented stakeholder "
-    "or empirical evidence supports privileging one criterion."
+    "TA-approved five-criterion MCA, equal weights of 20%; "
+    "revision approval confirmed by the user on 2026-10-12."
 )
 MCA_WEIGHTS = {criterion: 1 / len(MCA_CRITERIA) for criterion in MCA_CRITERIA}
 
-MCA_HIGH_PRIORITY_MIN = 2 / 3
-MCA_MEDIUM_PRIORITY_MIN = 1 / 3
+MCA_HIGH_PRIORITY_FRACTION = 0.25
+MCA_HIGH_AND_MEDIUM_FRACTION = 0.75

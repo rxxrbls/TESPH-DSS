@@ -1,0 +1,48 @@
+{
+  "raw_data/2026/Order.all.APRIL2026.xlsx": {
+    "rows": 86,
+    "sku_fields": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 15,
+      "SKU Total Weight": 86
+    },
+    "statuses": {
+      "Cancelled": 22,
+      "Shipping": 20,
+      "Delivered": 19,
+      "Order Received, but buyer can raise return/refund until 2026-04-28": 7,
+      "Order Received, but buyer can raise return/refund until 2026-04-26": 6,
+      "To ship": 4,
+      "Completed": 2,
+      "Order Received, but buyer can raise return/refund until 2026-04-25": 2,
+      "Order Received, but buyer can raise return/refund until 2026-04-27": 2,
+      "Order Received, but buyer can raise return/refund until 2026-04-29": 1,
+      "Order Received, but buyer can raise return/refund until 2026-04-30": 1
+    }
+  },
+  "raw_data/2026/Order.all.MARCH2026.xlsx": {
+    "rows": 28,
+    "sku_fields": {
+      "Parent SKU Reference No.": 3,
+      "SKU Reference No.": 14,
+      "SKU Total Weight": 28
+    },
+    "statuses": {
+      "Completed": 22,
+      "Cancelled": 6
+    }
+  },
+  "raw_data/2022/Order.all.AUG2022.xlsx": {
+    "rows": 7334,
+    "sku_fields": {
+      "Parent SKU Reference No.": 0,
+      "SKU Reference No.": 3,
+      "SKU Total Weight": 7334
+    },
+    "statuses": {
+      "Completed": 6195,
+      "Cancelled": 1002,
+      "Order Received": 137
+    }
+  }
+}

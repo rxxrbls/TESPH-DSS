@@ -287,6 +287,12 @@ def test_stock_as_of_is_unavailable_unless_explicitly_supplied(inventory, histor
     assert confirmed["stock_as_of"].tolist() == [date(2026, 1, 2)] * 2
     assert (confirmed["stock_as_of_status"] == "provided").all()
     assert (confirmed["stock_definition_status"] == "pending_client_confirmation").all()
+    stock_confirmed = replace(config, stock_as_of=date(2026, 1, 2), stock_definition_confirmed=True)
+    confirmed_semantics = build_inventory_crosswalk(inventory, historical, stock_confirmed)
+    assert (confirmed_semantics["stock_definition_status"] == "confirmed_net_sellable").all()
+    assert not confirmed_semantics["review_reasons"].str.contains(
+        "stock_definition_pending_client_confirmation", regex=False
+    ).any()
 
 
 def test_config_rejects_invalid_layout_or_unparsed_stock_date():

@@ -14,7 +14,7 @@ from utils.state import DataStatus, ensure_derived_outputs_for_active_dataset, g
 
 guard_protected_page()
 
-ensure_derived_outputs_for_active_dataset()
+ensure_derived_outputs_for_active_dataset(include_analytics=False)
 
 render_page_shell(
     "Stock-Out Risk",

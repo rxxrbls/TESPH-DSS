@@ -183,6 +183,8 @@ def backtest_sku(data: pd.DataFrame, config: ForecastConfig) -> pd.DataFrame:
         actual = data.iloc[origin:origin + config.horizon]
         for method in METHODS:
             forecast = _predict(train, method, config, window, alpha, config.horizon)
+            if not forecast["Time"].reset_index(drop=True).equals(actual["Time"].reset_index(drop=True)):
+                raise ValueError("Validation forecast dates must match the complete holdout calendar")
             for step, ((_, target), (_, prediction)) in enumerate(zip(actual.iterrows(), forecast.iterrows()), 1):
                 rows.append({"SKU": data["SKU"].iloc[0], "Product": data["Product"].iloc[0],
                              "Category": data["Category"].iloc[0], "Origin": train["Time"].iloc[-1],

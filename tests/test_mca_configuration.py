@@ -15,9 +15,8 @@ from src.prescriptive.mca import (
 def test_final_mca_criteria():
     assert MCA_CRITERIA == [
         "Sales Velocity",
-        "Gross Revenue",
+        "Profit Margin",
         "Supplier Lead Time",
-        "Projected Stock-Out Risk",
         "Forecasted Demand",
         "Return Rate",
     ]
@@ -26,16 +25,15 @@ def test_final_mca_criteria():
 def test_final_mca_directions():
     assert MCA_DIRECTIONS == {
         "Sales Velocity": "benefit",
-        "Gross Revenue": "benefit",
+        "Profit Margin": "benefit",
         "Supplier Lead Time": "cost",
-        "Projected Stock-Out Risk": "cost",
         "Forecasted Demand": "benefit",
         "Return Rate": "cost",
     }
 
 
 def test_final_mca_weights():
-    assert MCA_WEIGHTS == {criterion: 1 / 6 for criterion in MCA_CRITERIA}
+    assert MCA_WEIGHTS == {criterion: 1 / 5 for criterion in MCA_CRITERIA}
     assert MCA_WEIGHT_RATIONALE
 
 

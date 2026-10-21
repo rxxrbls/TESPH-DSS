@@ -352,10 +352,10 @@ def calculate_r_squared(validation_data: pd.DataFrame) -> pd.DataFrame:
     """KAN-50: calculate the coefficient of determination by category and method."""
 
     def r_squared(actual: np.ndarray, forecast: np.ndarray) -> float:
-        if len(actual) < 2:
+        if len(actual) < 2 or np.all(actual == actual[0]):
             return np.nan
         total = float(np.sum(np.square(actual - np.mean(actual))))
-        if np.isclose(total, 0.0):
+        if total == 0.0:
             return np.nan
         residual = float(np.sum(np.square(actual - forecast)))
         return 1 - residual / total

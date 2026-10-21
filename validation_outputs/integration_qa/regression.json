@@ -1,0 +1,15 @@
+{
+  "assessment_date": "2026-10-10",
+  "command": ".venv/Scripts/python.exe -m pytest -q",
+  "passed": 405,
+  "failed": 0,
+  "warnings": 1,
+  "seconds": 101.06,
+  "warning": "Existing deliberate invalid-date test emits pandas date-inference warning",
+  "diff_check": "passed",
+  "followup_after_responsive_css": {
+    "authentication_navigation_passed": 5,
+    "seconds": 2.91,
+    "backend_changed": false
+  }
+}

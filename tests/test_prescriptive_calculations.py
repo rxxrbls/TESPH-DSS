@@ -25,9 +25,8 @@ from prescriptive_calculations import (
 
 class StockRiskTests(unittest.TestCase):
     def test_default_doi_thresholds_are_configured(self) -> None:
-        self.assertEqual(STOCK_RISK_THRESHOLDS.critical_max_days, 1)
-        self.assertEqual(STOCK_RISK_THRESHOLDS.high_max_days, 3)
-        self.assertEqual(STOCK_RISK_THRESHOLDS.medium_max_days, 7)
+        self.assertEqual(STOCK_RISK_THRESHOLDS.supplier_lead_time_days, 7)
+        self.assertEqual(STOCK_RISK_THRESHOLDS.medium_buffer_multiplier, 1.5)
 
     def test_default_current_stock_path_is_repo_relative_and_loadable(self) -> None:
         self.assertTrue(DEFAULT_CURRENT_STOCK_PATH.is_file())
@@ -290,9 +289,8 @@ class StockRiskTests(unittest.TestCase):
             current_stock_column="Available Stock",
             forecast_horizon_days=10,
             thresholds=StockRiskThresholds(
-                critical_max_days=2,
-                high_max_days=5,
-                medium_max_days=10,
+                supplier_lead_time_days=5,
+                medium_buffer_multiplier=2,
             ),
         ).set_index("SKU")
 
@@ -329,31 +327,60 @@ class StockRiskTests(unittest.TestCase):
         self.assertEqual(result.loc["Toys", "Forecast Daily Demand"], 10)
         self.assertEqual(result.loc["Toys", "Days of Inventory"], 5)
         self.assertEqual(result.loc["Toys", "Risk Index"], 0.5)
-        self.assertEqual(result.loc["Toys", "Stock-Out Risk"], "Medium")
+        self.assertEqual(result.loc["Toys", "Stock-Out Risk"], "High")
         self.assertEqual(result.loc["Kitchenware", "Stock-Out Risk"], "No Forecast Demand")
         self.assertEqual(
             result.loc["Personal Care", "Stock-Out Risk"],
             "Insufficient Stock Data",
         )
 
+    def test_lead_time_boundaries_and_per_sku_override(self) -> None:
+        skus = ["zero", "at_lead", "above_lead", "at_buffer", "above_buffer"]
+        forecasts = pd.DataFrame({"SKU": skus, "Forecast": [70] * len(skus)})
+        inventory = pd.DataFrame(
+            {
+                "SKU": skus,
+                "Current Stock": [0, 70, 71, 105, 106],
+                "Supplier Lead Time": [7] * len(skus),
+            }
+        )
+        risk = calculate_stock_out_risk(
+            forecasts, inventory, item_columns=["SKU"], forecast_horizon_days=7
+        ).set_index("SKU")
+        assert risk["Stock-Out Risk"].to_dict() == {
+            "zero": "Critical",
+            "at_lead": "High",
+            "above_lead": "Medium",
+            "at_buffer": "Medium",
+            "above_buffer": "Low",
+        }
+        assert risk.loc["at_lead", "Days of Inventory"] == 7
+        assert (risk["Supplier Lead Time Source"] == "Per-SKU Supplier Lead Time").all()
+
+    def test_missing_supplier_lead_time_is_labeled_as_fallback(self) -> None:
+        forecasts = pd.DataFrame({"SKU": ["A", "B"], "Forecast": [70, 70]})
+        inventory = pd.DataFrame({"SKU": ["A", "B"], "Current Stock": [20, 20], "Supplier Lead Time": [None, None]})
+        risk = calculate_stock_out_risk(forecasts, inventory, item_columns=["SKU"], forecast_horizon_days=7)
+        assert (risk["Supplier Lead Time Source"] == "Fallback 7-Day Default Used").all()
+        risk_without_column = calculate_stock_out_risk(forecasts, inventory.drop(columns="Supplier Lead Time"), item_columns=["SKU"], forecast_horizon_days=7)
+        assert (risk_without_column["Supplier Lead Time Source"] == "Fallback 7-Day Default Used").all()
+
     def test_stock_thresholds_must_be_ordered(self) -> None:
-        with self.assertRaisesRegex(ValueError, "increase"):
+        with self.assertRaisesRegex(ValueError, "positive"):
             StockRiskThresholds(
-                critical_max_days=5,
-                high_max_days=3,
-                medium_max_days=10,
+                supplier_lead_time_days=0,
+                medium_buffer_multiplier=1.5,
             ).validate()
 
 
 class MCATests(unittest.TestCase):
-    def test_six_criteria_are_normalized_and_weighted(self) -> None:
+    def test_five_criteria_are_normalized_and_weighted(self) -> None:
         alternatives = pd.DataFrame(
             {
                 "SKU": ["A", "B"],
                 "Sales Velocity": [100, 50],
-                "Gross Revenue": [1000.0, 500.0],
+                "Profit Margin": [1000.0, 500.0],
                 "Supplier Lead Time": [20, 10],
-                "Projected Stock-Out Risk": [0.5, 0.1],
                 "Forecasted Demand": [120, 80],
                 "Return Rate": [0.1, 0.2],
             }

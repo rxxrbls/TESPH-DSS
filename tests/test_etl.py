@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from analytics_calculations import prepare_transactions
 from etl import (
     detect_exact_duplicates,
     detect_missing_values,
@@ -85,6 +86,28 @@ def test_valid_transformed_output_has_required_derived_fields():
     expected = {"product_key", "standardized_product_name", "order_date", "order_year", "order_month", "year_month"}
     assert expected.issubset(result.columns)
     assert result[list(expected)].notna().all().all()
+
+
+@pytest.mark.parametrize("status", ["Returned", "REFUNDED"])
+def test_returned_or_refunded_status_counts_as_demand_without_return_quantity(status):
+    frame = valid_frame().iloc[[0]].copy()
+    frame["Order Status"] = status
+    frame["Return / Refund Status"] = None
+    frame["Returned quantity"] = 0
+    frame["SKU Reference No."] = "SKU-1"
+    frame["Deal Price"] = 10
+    frame["Total Buyer Payment"] = 20
+
+    result = transform_transactions(frame)
+
+    assert bool(result.iloc[0]["is_returned"])
+    assert not bool(result.iloc[0]["is_completed"])
+
+    result["final_base_product_name"] = "Widget"
+    result["final_category"] = "Category"
+    analytics_rows = prepare_transactions(result)
+    assert analytics_rows.loc[0, "Gross Demand"] == result.loc[0, "Quantity"]
+    assert analytics_rows.loc[0, "Gross Revenue"] == 0
 
 
 def test_blank_sku_does_not_fail_required_schema_validation():

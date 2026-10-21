@@ -16,7 +16,8 @@ from etl_config import InventoryConfig
 from etl_inventory import build_inventory_crosswalk, load_current_inventory, validate_current_inventory
 from etl_streamlit import run_etl_from_upload
 from methodology_config import REPLENISHMENT_CONFIG
-from prescriptive_pipeline import build_sku_mapping_from_stock_upload, run_prescriptive_pipeline
+from prescriptive_pipeline import build_sku_mapping_from_stock_upload
+from mca_refresh import refresh_connected as run_prescriptive_pipeline
 from utils.components import (
     card_header,
     etl_stepper,
@@ -46,7 +47,9 @@ from utils.state import (
     get_prepared_transactions,
     get_reconciliation_summary,
     get_star_schema,
+    ensure_star_schema_for_active_dataset,
     register_selected_upload,
+    run_active_forecasting_pipeline,
     set_analytics_results,
     set_forecast_results,
     set_data_status,
@@ -63,19 +66,85 @@ from utils.stock_validation import validate_stock_as_of
 LOGGER = logging.getLogger(__name__)
 
 
-def process_stock_upload(file_bytes: bytes, filename: str, stock_as_of, dim_product):
+def render_return_refund_upload():
+    """Explicitly activate the conditionally approved three-criterion workflow."""
+    from datetime import date
+    import io
+    import zipfile
+    from three_criterion_mca import Coverage
+    with st.expander("Return/refund data — three-criterion MCA", expanded=False):
+        st.caption("Upload the cleaned backend CSV or handoff ZIP. Rankings remain provisional until TA weight sign-off. The rate counts recorded refunded quantities, including Refund Only; it is not a physical-return rate.")
+        upload = st.file_uploader("Cleaned return/refund evidence", type=["csv", "zip"], key="return_evidence")
+        with st.form("return_coverage"):
+            a, b = st.columns(2)
+            start = a.date_input("Order-date assessment start", date(2020, 5, 22))
+            end = b.date_input("Order-date assessment end", date(2026, 4, 24))
+            request_start = a.date_input("Request-date coverage start", date(2020, 5, 1))
+            request_end = b.date_input("Request-date coverage end", date(2026, 4, 24))
+            export_start = a.date_input("Export request dates: first", date(2026, 10, 15))
+            export_end = b.date_input("Export request dates: last", date(2026, 10, 16))
+            established = st.checkbox("Coverage is confirmed for the selected request dates, including empty monthly files. Later requests are outside this assessment.")
+            submitted = st.form_submit_button("Validate and refresh three-criterion MCA")
+        if submitted:
+            try:
+                if upload is None:
+                    raise ValueError("Select the cleaned return/refund CSV or ZIP.")
+                tx = get_prepared_transactions()
+                stock = get_inventory_crosswalk()
+                forecasts = get_forecast_results()
+                if tx is None or stock is None or not forecasts:
+                    raise ValueError("Process sales and connect a valid current-stock snapshot first.")
+                if upload.name.lower().endswith(".zip"):
+                    with zipfile.ZipFile(io.BytesIO(upload.getvalue())) as archive:
+                        matches = [n for n in archive.namelist() if n.endswith("prepared_return_refund_backend.csv")]
+                        if len(matches) != 1:
+                            raise ValueError("ZIP must contain exactly one prepared_return_refund_backend.csv.")
+                        if archive.getinfo(matches[0]).file_size > 100 * 1024 * 1024:
+                            raise ValueError("Return/refund CSV exceeds the 100 MB limit.")
+                        data = pd.read_csv(archive.open(matches[0]), dtype=str, keep_default_na=False)
+                else:
+                    data = pd.read_csv(io.BytesIO(upload.getvalue()), dtype=str, keep_default_na=False)
+                coverage = Coverage(*(str(x) for x in (start, end, request_start, request_end, export_start, export_end)),
+                                    established=established)
+                result = run_prescriptive_pipeline(tx, get_analytics_results() or {}, forecasts, stock,
+                    snapshot=data, coverage=coverage, batch_type="return_refund")
+                set_prescriptive_results(result["risk_results"], result["mca_results"],
+                    result["recommendation_results"], mca_audit=result["mca_audit"])
+                st.session_state["mca_sensitivity"] = result["mca_sensitivity"]
+                st.session_state["three_criterion_active"] = True
+                st.success("Return/refund evidence reviewed. Provisional MCA and connected outputs refreshed.")
+            except Exception as exc:
+                LOGGER.exception("Return/refund refresh failed")
+                st.error(f"Return/refund refresh was not published: {exc}")
+
+
+def process_stock_upload(file_bytes: bytes, filename: str, stock_as_of, dim_product, *, stock_definition_confirmed=False):
     """Process a stock export using the existing inventory ETL functions."""
     suffix = Path(filename).suffix
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(file_bytes)
         temp_path = Path(tmp.name)
     try:
-        config = InventoryConfig(source_path=temp_path, stock_as_of=stock_as_of)
+        config = InventoryConfig(
+            source_path=temp_path,
+            stock_as_of=stock_as_of,
+            stock_definition_confirmed=stock_definition_confirmed,
+        )
         inventory = load_current_inventory(config)
         validation = validate_current_inventory(inventory, config)
         return inventory, build_inventory_crosswalk(inventory, dim_product, config), validation
     finally:
         temp_path.unlink(missing_ok=True)
+
+
+def _latest_transaction_date(transactions: pd.DataFrame | None):
+    """Return the latest ETL transaction date for the TA-approved stock-date fallback."""
+    if transactions is None or transactions.empty or "order_date" not in transactions.columns:
+        return None
+    dates = pd.to_datetime(transactions["order_date"], errors="coerce").dropna()
+    if dates.empty:
+        return None
+    return dates.max().date()
 
 
 def _validation_issues(report, fallback: str | None = None) -> list[str]:
@@ -183,6 +252,7 @@ def _success_metrics() -> tuple[str, ...]:
 
 
 guard_protected_page()
+ensure_star_schema_for_active_dataset()
 render_page_shell("Data Upload & ETL", "Data")
 
 upload_column, schema_column = st.columns((1.2, 1), gap="large")
@@ -226,7 +296,9 @@ with upload_column:
                     # staging upload cannot discard valid session data. When the
                     # business authority is unchanged, reuse the existing runtime
                     # outputs instead of rerunning the whole downstream pipeline.
-                    if not result.reused_existing_outputs:
+                    from mca_refresh import review_path
+                    from return_refund_store import load_evidence
+                    if not result.reused_existing_outputs or load_evidence(review_path()) is not None:
                         clear_stock_dependent_results()
                     set_etl_results(
                         result.star_schema,
@@ -249,7 +321,7 @@ with upload_column:
                             card_header("ETL pipeline", "Ingest → Clean → Validate → Transform → Load", "Processing")
                             etl_stepper("Post-ETL / Running SKU demand forecast pipeline...")
                         try:
-                            set_forecast_results(run_forecasting_pipeline(result.prepared_transactions))
+                            set_forecast_results(run_active_forecasting_pipeline(result.prepared_transactions))
                         except Exception:
                             LOGGER.exception("Forecasting failed after a successful ETL handoff")
                             set_forecast_results(None, "Forecasting could not be prepared for this dataset.")
@@ -346,15 +418,32 @@ if get_data_status() is DataStatus.DATA_READY:
         if stock_file:
             st.caption(f"Selected stock file: {stock_file.name}")
             left, right = st.columns(2)
+            latest_transaction_date = _latest_transaction_date(get_prepared_transactions())
+            stock_date_default = latest_transaction_date or pd.Timestamp.today().date()
             with left:
+                if latest_transaction_date is not None:
+                    st.caption(
+                        "If this stock file has no snapshot date, the date below defaults "
+                        "to the latest transaction date as the TA-approved estimate. "
+                        "Replace it with the actual snapshot date when known."
+                    )
+                else:
+                    st.caption(
+                        "No transaction date is available for an estimate. Enter and confirm the "
+                        "actual stock snapshot date; today's date is only an input prompt."
+                    )
                 stock_as_of = st.date_input(
                     "Stock snapshot as-of date",
-                    value=pd.Timestamp.today().date(),
+                    value=stock_date_default,
                     key="stock_as_of",
                 )
                 stock_date_confirmed = st.checkbox(
-                    "I confirm this date matches the uploaded stock snapshot",
+                    "I confirm this date, including the latest-transaction-date fallback if needed",
                     key=f"confirm_stock_as_of_{stock_file.name}",
+                )
+                stock_definition_confirmed = st.checkbox(
+                    "I confirm Stock is net sellable quantity (on-hand minus reserved/allocated)",
+                    key=f"confirm_stock_definition_{stock_file.name}",
                 )
             with right:
                 threshold_days = st.number_input(
@@ -368,14 +457,23 @@ if get_data_status() is DataStatus.DATA_READY:
                     (st.warning if date_check["is_stale"] else st.error)(issue)
                 if not stock_date_confirmed:
                     st.info("Confirm the date shown for this stock snapshot before validation.")
-                elif date_check["valid"] and primary_button("Validate stock data", key="validate_stock"):
+                if not stock_definition_confirmed:
+                    st.info("Confirm the stock meaning before using these values for risk or replenishment.")
+                if stock_date_confirmed and stock_definition_confirmed and date_check["valid"] and primary_button("Validate stock data", key="validate_stock"):
                     set_stock_upload_feedback(None)
                     had_active_stock = get_inventory_validation() is not None
                     status = st.status("Validating the selected current-stock snapshot...", expanded=True)
                     try:
                         status.write("Reading the selected workbook and checking stock identifiers and values.")
+                        active_schema = get_star_schema()
+                        if not active_schema or "dim_product" not in active_schema:
+                            raise ValueError(
+                                "The active product dimension is unavailable. "
+                                "Reopen the page or process the transaction baseline before validating stock."
+                            )
                         inventory, crosswalk, validation = process_stock_upload(
-                            stock_file.getvalue(), stock_file.name, stock_as_of, get_star_schema()["dim_product"]
+                            stock_file.getvalue(), stock_file.name, stock_as_of, active_schema["dim_product"],
+                            stock_definition_confirmed=stock_definition_confirmed,
                         )
                         valid_rows = int(validation["row_checks"]["valid"].sum())
                         if not validation["valid"]:
@@ -403,6 +501,7 @@ if get_data_status() is DataStatus.DATA_READY:
                             crosswalk,
                             stock_as_of=stock_as_of,
                             as_of=pd.Timestamp.today().normalize(),
+                            max_stock_age_days=int(threshold_days),
                         )
                         status.write("Refreshing the SKU forecast using the active consolidated transaction history.")
                         forecasts = run_forecasting_pipeline(transactions, mapping=mapping)
@@ -416,12 +515,15 @@ if get_data_status() is DataStatus.DATA_READY:
                             forecasts,
                             crosswalk,
                             as_of=pd.Timestamp.today().normalize(),
+                            max_stock_age_days=int(threshold_days),
                         )
                         set_prescriptive_results(
                             prescriptive["risk_results"],
                             prescriptive["mca_results"],
                             prescriptive["recommendation_results"],
+                            mca_audit=prescriptive.get("mca_audit"),
                         )
+                        st.session_state["mca_sensitivity"] = prescriptive.get("mca_sensitivity")
                         set_stock_upload_feedback(
                             "success",
                             "Current-stock snapshot validated and connected outputs refreshed.",
@@ -462,3 +564,5 @@ if get_data_status() is DataStatus.DATA_READY:
             st.dataframe(crosswalk.head(20), use_container_width=True, hide_index=True)
 elif get_data_status() is DataStatus.NO_DATA and report is None:
     info_message("No data is available yet. Upload and process a Shopee transaction file to begin analysis.")
+
+render_return_refund_upload()

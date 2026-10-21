@@ -8,18 +8,18 @@ from src.prescriptive.recommendation_rules import (
 # KAN-287 - VALIDATE RECOMMENDATION OUTPUTS
 
 def test_high_priority_critical_risk():
-    result = generate_recommendation(10, "Critical")
-    assert result == "Replenish to target"
+    result = generate_recommendation(10, "Critical", "High")
+    assert result == "Immediate Restock - Highest Priority"
 
 
 def test_medium_priority_high_risk():
-    result = generate_recommendation(10, "High")
-    assert result == "Replenish to target"
+    result = generate_recommendation(10, "High", "Medium")
+    assert result == "Restock"
 
 
 def test_low_priority_low_risk():
-    result = generate_recommendation(0, "Low")
-    assert result == "Maintain stock"
+    result = generate_recommendation(0, "Low", "Low")
+    assert result == "Maintain Stock / Do Not Restock"
 
 
 def test_no_immediate_demand_risk():
@@ -27,7 +27,39 @@ def test_no_immediate_demand_risk():
         0,
         "No Forecast Demand",
     )
-    assert result == "Monitor; no forecast demand"
+    assert result == "No Immediate Restock / Monitor Demand"
+
+
+def test_recommendation_matrix_high_priority_low_risk():
+    assert generate_recommendation(10, "Low", "High") == "Maintain Stock / Monitor"
+
+
+def test_recommendation_matrix_medium_priority_medium_risk():
+    assert generate_recommendation(10, "Medium", "Medium") == "Monitor / Consider Restocking"
+
+
+def test_recommendation_matrix_low_priority_critical_risk():
+    assert generate_recommendation(10, "Critical", "Low") == "Restock / Review Immediately"
+
+
+def test_all_approved_priority_risk_matrix_cells():
+    expected = {
+        ("High", "Critical"): "Immediate Restock - Highest Priority",
+        ("High", "High"): "Restock - High Priority",
+        ("High", "Medium"): "Restock Soon",
+        ("High", "Low"): "Maintain Stock / Monitor",
+        ("Medium", "Critical"): "Immediate Restock",
+        ("Medium", "High"): "Restock",
+        ("Medium", "Medium"): "Monitor / Consider Restocking",
+        ("Medium", "Low"): "Maintain Stock",
+        ("Low", "Critical"): "Restock / Review Immediately",
+        ("Low", "High"): "Review for Restocking",
+        ("Low", "Medium"): "Monitor",
+        ("Low", "Low"): "Maintain Stock / Do Not Restock",
+    }
+    assert {
+        key: generate_recommendation(10, key[1], key[0]) for key in expected
+    } == expected
 
 
 # KAN-287 - VALIDATE TARGET STOCK LEVEL

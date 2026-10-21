@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -16,6 +16,8 @@ import forecasting_pipeline
 import prescriptive_pipeline
 import utils.components as components
 from utils.state import DEFAULT_STATE, DataStatus
+from etl_config import FINAL_SCHEMAS
+from star_schema_db import INGESTION_BATCH_COLUMNS, LOAD_ORDER, load_runtime_snapshot
 
 
 PAGE_PATH = Path(__file__).resolve().parents[1] / "pages" / "data_upload.py"
@@ -72,6 +74,7 @@ def _run_stock_page(
     *,
     forecast_error: str | None = None,
     validation_valid: bool = True,
+    missing_star_schema: bool = False,
 ) -> AppTest:
     """Run the real page with deterministic pipeline boundaries."""
     monkeypatch.setattr(components, "guard_protected_page", lambda: None)
@@ -101,7 +104,8 @@ def _run_stock_page(
     for key, value in DEFAULT_STATE.items():
         app.session_state[key] = value
     app.session_state["data_status"] = DataStatus.DATA_READY.value
-    app.session_state["star_schema"] = {"dim_product": pd.DataFrame({"product_key": ["P-1"]})}
+    if not missing_star_schema:
+        app.session_state["star_schema"] = {"dim_product": pd.DataFrame({"product_key": ["P-1"]})}
     app.session_state["prepared_transactions"] = pd.DataFrame({"Order ID": ["O-1"]})
     app.session_state["analytics_results"] = {}
     return app.run()
@@ -112,6 +116,7 @@ def _select_and_confirm_stock(app: AppTest) -> AppTest:
     app.run()
     app.date_input[0].set_value(date(2026, 9, 9))
     app.checkbox[0].check()
+    app.checkbox[1].check()
     return app.run()
 
 
@@ -128,6 +133,41 @@ def test_validate_stock_data_click_publishes_a_persistent_success_outcome(monkey
     assert len(app.session_state["risk_results"]) == 1
     app.run()
     assert any(message.value == "Current-stock snapshot validated and connected outputs refreshed." for message in app.success)
+
+
+def test_stock_upload_restores_dimension_from_existing_runtime_snapshot(monkeypatch, tmp_path):
+    database = tmp_path / "active_transactions.db"
+    stars = {
+        table: pd.DataFrame(columns=FINAL_SCHEMAS[table])
+        for table in LOAD_ORDER
+    }
+    stars["dim_product"] = pd.DataFrame(
+        [{"product_key": "P-1", **{column: None for column in FINAL_SCHEMAS["dim_product"] if column != "product_key"}}],
+        columns=FINAL_SCHEMAS["dim_product"],
+    )
+    prepared = pd.DataFrame(columns=FINAL_SCHEMAS["prepared_transactions"])
+    batches = pd.DataFrame(columns=INGESTION_BATCH_COLUMNS)
+    load_runtime_snapshot(
+        stars,
+        prepared,
+        batches,
+        {"dataset_id": "dataset-1"},
+        database,
+    )
+    monkeypatch.setattr("etl_config.RUNTIME_DB_PATH", database)
+
+    app = _run_stock_page(monkeypatch, missing_star_schema=True)
+    assert not app.exception
+    assert app.session_state["star_schema"]["dim_product"].loc[0, "product_key"] == "P-1"
+
+    app = _select_and_confirm_stock(app)
+    app.button[0].click().run()
+
+    assert not app.exception
+    assert any(
+        message.value == "Current-stock snapshot validated and connected outputs refreshed."
+        for message in app.success
+    )
 
 
 def test_stock_workflow_shows_the_downstream_failure_and_retains_validated_snapshot(monkeypatch):
@@ -155,8 +195,34 @@ def test_stock_validation_failure_is_visible_without_publishing_stock_or_downstr
     assert app.session_state["risk_results"] is None
 
 
+def test_future_stock_asof_date_blocks_validation(monkeypatch):
+    app = _select_and_confirm_stock(_run_stock_page(monkeypatch))
+    app.date_input[0].set_value(date.today() + timedelta(days=1))
+    app = app.run()
+
+    assert not app.exception
+    assert any("cannot be in the future" in message.value for message in app.error)
+    assert not any(button.label == "Validate stock data" for button in app.button)
+    assert app.session_state["inventory_validation"] is None
+
+
 def test_stock_workflow_renders_an_explicit_running_status(monkeypatch):
     source = PAGE_PATH.read_text(encoding="utf-8")
 
     assert 'st.status("Validating the selected current-stock snapshot...", expanded=True)' in source
     assert "Refreshing the SKU forecast using the active consolidated transaction history." in source
+
+
+def test_missing_snapshot_date_defaults_to_latest_transaction_date(monkeypatch):
+    app = _run_stock_page(monkeypatch)
+    app.session_state["prepared_transactions"] = pd.DataFrame(
+        {"order_date": ["2026-09-08", "2026-09-12", "invalid"]}
+    )
+    app.file_uploader[1].set_value(
+        ("current-stock.xlsx", b"test workbook", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    )
+    app.run()
+
+    assert not app.exception
+    assert app.date_input[0].value == date(2026, 9, 12)
+    assert any("latest transaction date as the TA-approved estimate" in item.value for item in app.caption)

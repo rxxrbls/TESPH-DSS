@@ -111,8 +111,8 @@ def connect_stock_out_frequency_to_mca(
     stock_out_frequency_df,
 ):
     """
-    Connects the TA-approved Stock-Out Frequency output
-    to the stock_out_frequency criterion required by MCA.
+    Legacy adapter for historical auditing only.
+    Stock-Out Frequency is no longer used in active MCA scoring.
 
     Expected upstream columns:
         product_key
@@ -148,17 +148,19 @@ def connect_return_order_indicators_to_mca(
     return_indicators_df,
 ):
     """
-    Converts the existing Return Order Rate analytics output
+    Converts unit-based return measures to a percentage
     into the return_rate input required by MCA.
 
     Expected upstream columns:
         Product Key
-        Return Order Rate
+        Returned Quantity
+        Gross Demand
     """
 
     required_columns = {
         "Product Key",
-        "Return Order Rate",
+        "Returned Quantity",
+        "Gross Demand",
     }
 
     missing_columns = (
@@ -174,25 +176,29 @@ def connect_return_order_indicators_to_mca(
     mca_return_input = return_indicators_df[
         [
             "Product Key",
-            "Return Order Rate",
+            "Returned Quantity",
+            "Gross Demand",
         ]
     ].copy()
 
     mca_return_input = mca_return_input.rename(
         columns={
             "Product Key": "product_key",
-            "Return Order Rate": "return_rate",
         }
     )
 
-    return mca_return_input
+    from mca_inputs import calculate_return_rate
+    mca_return_input["return_rate"] = calculate_return_rate(
+        mca_return_input["Returned Quantity"], mca_return_input["Gross Demand"]
+    )
+    return mca_return_input[["product_key", "return_rate"]]
 
 # W1-54 / KAN-131 - TA-APPROVED MCA BENEFIT/COST DIRECTIONS
 def validate_mca_configuration():
     """
     Validates the configured MCA methodology.
 
-    Checks that all six criteria have valid directions and weights
+    Checks that all five criteria have valid directions and weights
     and that the weights sum to 1.00.
     """
 
@@ -225,7 +231,7 @@ def min_max_normalize(
 
     return _min_max_normalize(value, min_value, max_value, direction)
 
-# NORMALIZE ALL SIX MCA CRITERIA
+# NORMALIZE ALL FIVE MCA CRITERIA
 def normalize_sku(
     sku_values,
     dataset_minimums,
@@ -289,7 +295,7 @@ def calculate_sku_priority(
     Performs the complete MCA calculation for one SKU.
 
     Steps:
-        1. Normalize the six criteria
+        1. Normalize the five criteria
         2. Calculate weighted contributions
         3. Calculate Priority Score
     """

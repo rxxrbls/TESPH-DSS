@@ -1,0 +1,16 @@
+{
+  "workbooks_with_nonblank_skus": 48,
+  "literal_nonblank_source_rows": 833,
+  "prepared_nonblank_sku_rows": 833,
+  "literal_differences": 112,
+  "differences_by_prepared_sku": {
+    "0.0": 99,
+    "BELOSNSCREEN-Set of 3pcs Belo": 7,
+    "TrashBag-Large 10pcs / Roll": 3,
+    "LICORISESERUM-1pc Licorise S": 2,
+    "130244.0": 1
+  },
+  "ambiguous_original_identifiers": 0,
+  "restored_in_latest_trial": 112,
+  "additional_differences_to_test": 0
+}
