@@ -73,11 +73,31 @@ def test_dataset_mismatch_rebuilds_analytics_and_forecast_state(monkeypatch):
     assert state.has_valid_forecast_for_active_dataset() is False
 
 
-def test_empty_forecast_result_is_still_valid_for_active_dataset(monkeypatch):
+def test_forecast_result_with_chart_contract_is_valid_for_active_dataset(monkeypatch):
     values = {
         "active_dataset_id": "dataset-a",
         "forecast_results": {
             "forecast_output": pd.DataFrame(columns=["SKU", "Forecast"]),
+            "category_eligibility": pd.DataFrame([
+                {
+                    "Category": "Kitchenware",
+                    "Eligible": True,
+                    "Eligibility Rank": 1,
+                    "Selected": True,
+                    "Demand Contribution": 0.4,
+                    "Revenue Contribution": 0.3,
+                    "Contribution": 0.35,
+                }
+            ]),
+            "category_validation_detail": pd.DataFrame([
+                {
+                    "Category": "Kitchenware",
+                    "Time": pd.Timestamp("2026-04-01"),
+                    "Method": "Moving Average",
+                    "Actual": 10,
+                    "Forecast": 9,
+                }
+            ]),
             "selection_status": pd.DataFrame([
                 {"Status": "No eligible SKU forecasts", "Forecast SKU Count": 0}
             ]),

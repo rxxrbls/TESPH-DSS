@@ -35,6 +35,7 @@ DEFAULT_STATE: dict[str, Any] = {
     "forecast_dataset_id": None,
     "forecast_error_message": None,
     # Reserved for approved predictive/risk outputs; the UI does not derive risk levels.
+    "prescriptive_dataset_id": None,
     "risk_results": None,
     "mca_results": None,
     "mca_audit": None,
@@ -142,6 +143,103 @@ def run_active_forecasting_pipeline(transactions: pd.DataFrame) -> dict[str, pd.
     return results
 
 
+def _get_active_dim_product() -> pd.DataFrame:
+    star_schema = st.session_state.get("star_schema") or {}
+    dim_product = star_schema.get("dim_product")
+    if isinstance(dim_product, pd.DataFrame) and not dim_product.empty:
+        return dim_product
+
+    from etl import load_final_table
+    from etl_config import FINAL_OUTPUT_DIR
+
+    return load_final_table("dim_product", FINAL_OUTPUT_DIR)
+
+
+def get_active_dim_product() -> pd.DataFrame:
+    """Return the authoritative active product dimension."""
+    return _get_active_dim_product()
+
+
+def _prepare_default_inventory_forecasts(
+    txns: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict, pd.DataFrame, dict[str, pd.DataFrame]]:
+    from etl_config import CURRENT_INVENTORY_SOURCE, InventoryConfig
+    from etl_inventory import (
+        build_inventory_crosswalk,
+        load_current_inventory,
+        validate_current_inventory,
+    )
+    from forecasting_pipeline import run_forecasting_pipeline
+    from prescriptive_pipeline import build_sku_mapping_from_stock_upload
+
+    if not CURRENT_INVENTORY_SOURCE.is_file():
+        raise FileNotFoundError(
+            "Current-stock workbook is required to prepare mapped SKU forecasts."
+        )
+
+    stock_as_of = pd.Timestamp("2026-09-09")
+    as_of = pd.Timestamp("2026-10-06")
+    config = InventoryConfig(
+        source_path=CURRENT_INVENTORY_SOURCE,
+        stock_as_of=stock_as_of,
+    )
+    inventory = load_current_inventory(config)
+    validation = validate_current_inventory(inventory, config)
+    if not validation.get("valid", False):
+        raise ValueError("The bundled current-stock workbook did not pass validation.")
+
+    crosswalk = build_inventory_crosswalk(inventory, _get_active_dim_product(), config)
+    mapping, inventory_audit = build_sku_mapping_from_stock_upload(
+        txns,
+        crosswalk,
+        stock_as_of=stock_as_of,
+        as_of=as_of,
+    )
+    forecasts = run_forecasting_pipeline(txns, mapping=mapping)
+    forecasts["inventory_review"] = inventory_audit
+    forecasts["sku_mapping"] = mapping
+    return inventory, crosswalk, validation, inventory_audit, forecasts
+
+
+def _ensure_default_prescriptive_outputs(txns: pd.DataFrame) -> None:
+    """Use the bundled current-stock snapshot when the user has not uploaded one."""
+    import logging
+
+    from analytics_pipeline import run_analytics_pipeline
+    from prescriptive_pipeline import run_prescriptive_pipeline
+
+    try:
+        as_of = pd.Timestamp("2026-10-06")
+        inventory, crosswalk, validation, _, forecasts = _prepare_default_inventory_forecasts(txns)
+        set_forecast_results(forecasts)
+
+        analytics = st.session_state.get("analytics_results")
+        if not analytics:
+            analytics = run_analytics_pipeline(txns)
+            set_analytics_results(analytics)
+
+        prescriptive = run_prescriptive_pipeline(
+            txns,
+            analytics,
+            forecasts,
+            crosswalk,
+            as_of=as_of,
+        )
+        set_inventory_results(inventory, crosswalk, validation)
+        set_prescriptive_results(
+            prescriptive["risk_results"],
+            prescriptive["mca_results"],
+            prescriptive["recommendation_results"],
+        )
+    except Exception:
+        logging.getLogger(__name__).exception("Default prescriptive output generation failed")
+        set_prescriptive_results(
+            None,
+            None,
+            None,
+            "Current-stock risk, MCA, and replenishment could not be prepared from the bundled current-stock workbook.",
+        )
+
 def bootstrap_from_active_db() -> None:
     """Compatibility wrapper for explicit data restoration without blocking sign-in."""
     restore_runtime_authority()
@@ -164,16 +262,24 @@ def ensure_star_schema_for_active_dataset() -> dict | None:
 
     from etl_config import FINAL_OUTPUT_DIR, RUNTIME_DB_PATH
 
+    star_schema = None
     if RUNTIME_DB_PATH.is_file():
         from star_schema_db import read_runtime_star_schema
 
-        star_schema = read_runtime_star_schema(RUNTIME_DB_PATH)
-    else:
+        try:
+            star_schema = read_runtime_star_schema(RUNTIME_DB_PATH)
+        except Exception:
+            star_schema = None
+    elif FINAL_OUTPUT_DIR.is_dir():
         from etl import load_star_schema
 
-        star_schema = load_star_schema(FINAL_OUTPUT_DIR)
+        try:
+            star_schema = load_star_schema(FINAL_OUTPUT_DIR)
+        except Exception:
+            star_schema = None
 
-    st.session_state["star_schema"] = star_schema
+    if star_schema is not None:
+        st.session_state["star_schema"] = star_schema
     return star_schema
 
 
@@ -301,6 +407,24 @@ def has_valid_forecast_for_active_dataset() -> bool:
     return False
 
 
+def has_valid_prescriptive_for_active_dataset() -> bool:
+    active_dataset_id = st.session_state.get("active_dataset_id")
+    if active_dataset_id is None:
+        return False
+    has_outputs = all(
+        isinstance(st.session_state.get(key), pd.DataFrame)
+        and not st.session_state[key].empty
+        for key in ("risk_results", "mca_results", "recommendation_results")
+    )
+    if not has_outputs:
+        return False
+    prescriptive_dataset_id = st.session_state.get("prescriptive_dataset_id")
+    if prescriptive_dataset_id is None:
+        st.session_state["prescriptive_dataset_id"] = active_dataset_id
+        return True
+    return prescriptive_dataset_id == active_dataset_id
+
+
 def get_analytics_error_message() -> str | None:
     return st.session_state.get("analytics_error_message")
 
@@ -342,6 +466,11 @@ def set_prescriptive_results(
     st.session_state["mca_audit"] = mca_audit
     st.session_state["recommendation_results"] = recommendations
     st.session_state["prescriptive_error_message"] = error_message
+    st.session_state["prescriptive_dataset_id"] = (
+        st.session_state.get("active_dataset_id")
+        if risk is not None and mca is not None and recommendations is not None
+        else None
+    )
 
 
 def get_mca_results() -> pd.DataFrame | None:
@@ -409,6 +538,7 @@ def clear_stock_derived_results() -> None:
     st.session_state["recommendation_results"] = None
     st.session_state["prescriptive_error_message"] = None
     st.session_state["mca_sensitivity"] = None
+    st.session_state.pop("prescriptive_dataset_id", None)
 
 
 def clear_stock_dependent_results() -> None:

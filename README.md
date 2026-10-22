@@ -48,6 +48,10 @@ For the local authorized-user login, copy `.streamlit/secrets.toml.example` to
 `.streamlit/secrets.toml` and set the `[auth]` values. The real secrets file is
 ignored by Git. Temporary local development may instead set
 `TESPH_AUTH_USERNAME` and `TESPH_AUTH_PASSWORD` in the process environment.
+Settings profile email changes require the `[email]` SMTP configuration (including
+`app_base_url`) and remain inactive for password recovery until the emailed
+verification link is opened. Username changes are stored in the local account
+database and become the login name after the profile is saved.
 
 # Member 1 – Data & ETL Guide
 
