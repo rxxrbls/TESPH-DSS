@@ -457,7 +457,7 @@ if process_requested and upload_bytes is not None and upload_name is not None:
         if not result.reused_existing_outputs or not has_valid_forecast_for_active_dataset():
             update_etl_progress("Post-ETL / Running SKU demand forecast pipeline...")
             try:
-                set_forecast_results(run_forecasting_pipeline(result.prepared_transactions))
+                set_forecast_results(run_active_forecasting_pipeline(result.prepared_transactions))
             except Exception:
                 LOGGER.exception("Forecasting failed after a successful ETL handoff")
                 set_forecast_results(None, "Forecasting could not be prepared for this dataset.")

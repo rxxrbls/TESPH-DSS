@@ -16,8 +16,6 @@ from utils.account_store import (
     get_business_name,
     get_logo_path,
     is_two_factor_enabled,
-    request_password_reset,
-    reset_password_with_token,
     verify_user_two_factor,
 )
 from utils.auth import (
@@ -407,9 +405,6 @@ def inject_global_styles() -> None:
         .login-title { margin:clamp(.35rem, 1vh, .65rem) 0 .15rem !important; color:var(--tesph-text) !important; font-size:clamp(1.45rem, 4vh, 2rem) !important; font-weight:750 !important; line-height:1.12 !important; }
         .login-subtitle { max-width:22rem; margin:0 auto !important; color:var(--tesph-text-muted) !important; font-size:clamp(.8rem, 2vh, .92rem) !important; line-height:1.3 !important; }
         .login-form-heading, .login-form-note { display:none; }
-        .login-forgot-wrap { position:relative; top:-.35rem; display:flex; height:2rem; min-height:2rem; align-items:center; justify-content:flex-end; }
-        .login-forgot-link { display:inline-flex; align-items:center; height:2rem; color:#D9980F !important; font-size:.82rem; font-weight:700; line-height:1; text-decoration:none !important; cursor:pointer; white-space:nowrap; }
-        .login-forgot-link:hover, .login-forgot-link:focus { color:#B77908 !important; text-decoration:underline !important; }
         [data-testid="stVerticalBlockBorderWrapper"]:has(.login-form-anchor) { border:1px solid var(--tesph-border) !important; border-radius:.75rem !important; box-shadow:0 14px 40px rgba(42,31,12,.08) !important; }
         [data-testid="stVerticalBlockBorderWrapper"]:has(.login-form-anchor) > div { padding:clamp(.85rem, 2.2vh, 1.5rem) !important; }
         [data-testid="stElementContainer"]:has(.two-factor-verification-anchor) { display:none !important; }
@@ -889,110 +884,8 @@ def render_sidebar() -> None:
             st.markdown('<div class="nav-gate-note">Analytics and decision pages require a processed dataset. They remain available for review.</div>', unsafe_allow_html=True)
 
 
-@st.dialog("Reset Password")
-def _forgot_password_dialog() -> None:
-    st.markdown(
-        """
-        <style>
-        [data-testid="stDialog"]:has(.reset-password-dialog-anchor) {
-            display:flex !important;
-            align-items:center !important;
-            justify-content:center !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) {
-            margin:auto !important;
-            max-height:calc(100vh - 2rem) !important;
-            overflow-y:auto !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) > h2[slot="title"] {
-            padding:1.5rem 1.5rem .6rem !important;
-            margin:0 !important;
-            min-height:0 !important;
-            height:auto !important;
-            align-items:flex-start !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) > h2[slot="title"] [data-testid="stMarkdownContainer"] p {
-            margin:0 !important;
-            color:#252525 !important;
-            font-size:1.55rem !important;
-            font-weight:650 !important;
-            line-height:1.2 !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) > h2[slot="title"] + div {
-            padding:.5rem 1.5rem 1.5rem !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) [data-testid="stElementContainer"]:has(.reset-password-dialog-anchor) {
-            display:none !important;
-            height:0 !important;
-            margin:0 !important;
-            padding:0 !important;
-            overflow:hidden !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) [data-testid="stVerticalBlock"] {
-            gap:0 !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) [data-testid="stElementContainer"]:has(.reset-password-copy) {
-            margin:0 0 1.55rem !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) [data-testid="stElementContainer"]:has([data-testid="stTextInput"]) {
-            margin-bottom:.75rem !important;
-        }
-        section[role="dialog"]:has(.reset-password-dialog-anchor) [data-testid="stElementContainer"]:has([data-testid="stAlert"]) {
-            width:100% !important;
-            margin-top:.85rem !important;
-        }
-        .reset-password-copy {
-            margin:0 !important;
-            color:#252525 !important;
-            font-size:.95rem !important;
-            line-height:1.55 !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown('<span class="reset-password-dialog-anchor" aria-hidden="true"></span>', unsafe_allow_html=True)
-    st.markdown(
-        '<p class="reset-password-copy">Enter your registered email address, and we\'ll send you a link to reset your password.</p>',
-        unsafe_allow_html=True,
-    )
-    email = st.text_input("Email Address", placeholder="Enter your email address", key="forgot_password_email")
-    processing = bool(st.session_state.get("forgot_password_processing", False))
-    feedback: tuple[str, str] | None = None
-    left, right = st.columns((1, 1), gap="small")
-    with left:
-        if st.button("Cancel", use_container_width=True, disabled=processing):
-            st.session_state["show_forgot_password_dialog"] = False
-            st.query_params.pop("forgot_password", None)
-            st.rerun()
-    with right:
-        if st.button("Send Reset Link", type="primary", use_container_width=True, disabled=processing):
-            cleaned_email = email.strip()
-            if not cleaned_email:
-                feedback = ("error", "Email address is required.")
-            elif EMAIL_PATTERN.match(cleaned_email) is None:
-                feedback = ("error", "Enter a valid email address.")
-            else:
-                st.session_state["forgot_password_processing"] = True
-                try:
-                    result = request_password_reset(cleaned_email)
-                finally:
-                    st.session_state["forgot_password_processing"] = False
-                if result.configured and result.requested:
-                    st.session_state["show_forgot_password_dialog"] = False
-                    st.query_params.pop("forgot_password", None)
-                    feedback = ("success", result.message)
-                else:
-                    feedback = ("error", result.message)
-    if feedback:
-        getattr(st, feedback[0])(feedback[1])
-
-
 def render_login_screen() -> None:
     """Render the local authorized-user login screen."""
-    reset_token = st.query_params.get("reset_token")
-    if st.query_params.get("forgot_password") == "1":
-        st.session_state["show_forgot_password_dialog"] = True
     st.markdown('<div class="login-spacer"></div>', unsafe_allow_html=True)
     left, content, right = st.columns((1.2, 1, 1.2))
     with content:
@@ -1003,23 +896,6 @@ def render_login_screen() -> None:
             '<p class="login-subtitle">Decision Support System</p></div>',
             unsafe_allow_html=True,
         )
-        if reset_token:
-            with st.container(border=True):
-                st.markdown('<span class="login-form-anchor" aria-hidden="true"></span>', unsafe_allow_html=True)
-                st.subheader("Reset password")
-                new_password = st.text_input("New Password", type="password", placeholder="Enter a new password")
-                confirm_password = st.text_input("Confirm New Password", type="password", placeholder="Confirm your new password")
-                if st.button("Reset Password", type="primary", use_container_width=True):
-                    if new_password != confirm_password:
-                        st.error("Passwords do not match.")
-                    else:
-                        ok, message = reset_password_with_token(str(reset_token), new_password)
-                        if ok:
-                            st.success(message)
-                            st.query_params.clear()
-                        else:
-                            st.error(message)
-            return
         with st.container(border=True):
             st.markdown('<span class="login-form-anchor" aria-hidden="true"></span>', unsafe_allow_html=True)
             pending_2fa_user = st.session_state.get("pending_2fa_username")
@@ -1049,14 +925,7 @@ def render_login_screen() -> None:
                     '<span class="login-options-anchor" aria-hidden="true"></span>',
                     unsafe_allow_html=True,
                 )
-                option_left, option_right = st.columns((1, 1), vertical_alignment="center")
-                with option_left:
-                    remember_me = st.checkbox("Remember Me")
-                with option_right:
-                    st.markdown(
-                        '<div class="login-forgot-wrap"><a class="login-forgot-link" href="?forgot_password=1" target="_self">Forgot Password?</a></div>',
-                        unsafe_allow_html=True,
-                    )
+                remember_me = st.checkbox("Remember Me")
                 submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
             if submitted:
                 if not is_authentication_configured():
@@ -1071,8 +940,6 @@ def render_login_screen() -> None:
                     st.rerun()
                 else:
                     login_error_slot.error("Invalid username or password.")
-            if st.session_state.get("show_forgot_password_dialog"):
-                _forgot_password_dialog()
         st.markdown(
             '<p class="login-note">Smarter insights for sales, demand, inventory, and replenishment decisions.</p>',
             unsafe_allow_html=True,

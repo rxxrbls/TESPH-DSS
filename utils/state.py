@@ -270,13 +270,6 @@ def ensure_star_schema_for_active_dataset() -> dict | None:
             star_schema = read_runtime_star_schema(RUNTIME_DB_PATH)
         except Exception:
             star_schema = None
-    elif FINAL_OUTPUT_DIR.is_dir():
-        from etl import load_star_schema
-
-        try:
-            star_schema = load_star_schema(FINAL_OUTPUT_DIR)
-        except Exception:
-            star_schema = None
 
     if star_schema is not None:
         st.session_state["star_schema"] = star_schema

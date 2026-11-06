@@ -39,8 +39,42 @@ INTEGRITY_CHECKS = [
         WHERE d.payment_key IS NULL"""),
 ]
 
+def ensure_database_populated(db_path: Path = RUNTIME_DB_PATH) -> None:
+    """Ensure db_path exists and has Star Schema tables, bootstrapping from final_outputs if needed."""
+    db_path = Path(db_path)
+    if db_path.exists():
+        with closing(sqlite3.connect(db_path)) as conn:
+            has_fact = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='fact_sales'"
+            ).fetchone()
+            if has_fact:
+                return
+
+    from etl import load_prepared_transactions, load_star_schema
+    from etl_config import FINAL_OUTPUT_DIR
+    from runtime_data_store import _dataset_id, _empty_batches, payload_fingerprints
+    from star_schema_db import load_runtime_snapshot
+
+    star_schema = load_star_schema(FINAL_OUTPUT_DIR)
+    prepared = load_prepared_transactions(FINAL_OUTPUT_DIR)
+    dataset_id = _dataset_id(payload_fingerprints(prepared))
+    load_runtime_snapshot(
+        star_schema,
+        prepared,
+        _empty_batches(),
+        {
+            "dataset_id": dataset_id,
+            "baseline_path": str(FINAL_OUTPUT_DIR / "prepared_transactions.csv"),
+            "baseline_immutable": "true",
+            "reconciliation_policy": "exact-content-add-only; possible-corrections-quarantined",
+        },
+        db_path,
+    )
+
+
 def validate_database(db_path: Path = RUNTIME_DB_PATH) -> list[dict]:
     """Run all integrity checks. Returns list of {check, expected, actual, status}."""
+    ensure_database_populated(db_path)
     if not db_path.exists():
         raise FileNotFoundError(f"Database not found at {db_path}")
         

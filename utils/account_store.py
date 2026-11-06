@@ -24,7 +24,7 @@ import streamlit as st
 
 
 RUNTIME_DIR = Path("runtime_data")
-OPERATIONAL_DB_PATH = RUNTIME_DIR / "active_transactions.db"
+OPERATIONAL_DB_PATH = RUNTIME_DIR / "app_account.db"
 BRANDING_DIR = RUNTIME_DIR / "branding"
 LOGO_DIR = BRANDING_DIR / "logos"
 DEFAULT_BUSINESS_NAME = "TheEverythingShopPH"
@@ -32,18 +32,10 @@ DEFAULT_LOGO_PATH = Path("assets/theeverythingshopph-logo.png")
 PASSWORD_ITERATIONS = 260_000
 TOTP_INTERVAL_SECONDS = 30
 TOTP_DIGITS = 6
-RESET_TOKEN_MINUTES = 30
 PROFILE_EMAIL_TOKEN_MINUTES = 30
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{3,64}$")
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 LOGGER = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class PasswordResetResult:
-    configured: bool
-    requested: bool
-    message: str
 
 
 @dataclass(frozen=True)
@@ -108,17 +100,6 @@ def _ensure_tables(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE app_users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0")
     if "full_name" not in user_columns:
         conn.execute("ALTER TABLE app_users ADD COLUMN full_name TEXT")
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS password_reset_tokens (
-            token_hash TEXT PRIMARY KEY,
-            username TEXT NOT NULL,
-            expires_at TEXT NOT NULL,
-            used_at TEXT,
-            created_at TEXT NOT NULL
-        )
-        """
-    )
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS auth_events (
@@ -399,10 +380,6 @@ def change_password(username: str, current_password: str, new_password: str) -> 
             (_hash_password(new_password), len(new_password), now, now, username),
         )
         conn.execute(
-            "UPDATE password_reset_tokens SET used_at = ? WHERE username = ? AND used_at IS NULL",
-            (now, username),
-        )
-        conn.execute(
             "INSERT INTO auth_events (username, event_type, created_at) VALUES (?, ?, ?)",
             (username, "password_changed", now),
         )
@@ -537,7 +514,7 @@ def save_account_profile(
         return ProfileUpdateResult(False, "A logo file is required for the selected image type.", current_username)
 
     email_config = _email_config()
-    if not password_reset_email_configured() and cleaned_email:
+    if not is_email_delivery_configured() and cleaned_email:
         with _connect() as conn:
             _bootstrap_user(conn)
             existing = conn.execute(
@@ -621,7 +598,7 @@ def save_account_profile(
                 ).fetchone()
                 if duplicate_email:
                     return ProfileUpdateResult(False, "That email address is already associated with an account.", current_username)
-                if not password_reset_email_configured():
+                if not is_email_delivery_configured():
                     return ProfileUpdateResult(
                         False,
                         "Email changes require configured email delivery so the new address can be verified.",
@@ -639,10 +616,6 @@ def save_account_profile(
                 conn.execute(
                     "UPDATE app_users SET username = ?, updated_at = ? WHERE username = ?",
                     (cleaned_username, now_text, current_username),
-                )
-                conn.execute(
-                    "UPDATE password_reset_tokens SET used_at = ? WHERE username = ? AND used_at IS NULL",
-                    (now_text, current_username),
                 )
                 conn.execute(
                     "UPDATE account_email_verification_tokens SET used_at = ? "
@@ -810,10 +783,13 @@ def _email_config() -> dict[str, str]:
     return values
 
 
-def password_reset_email_configured() -> bool:
+def is_email_delivery_configured() -> bool:
     config = _email_config()
     required = ("smtp_host", "smtp_port", "smtp_username", "smtp_password", "from_email", "app_base_url")
     return all(config.get(key) for key in required)
+
+
+password_reset_email_configured = is_email_delivery_configured
 
 
 def verify_account_email(token: str) -> tuple[bool, str]:
@@ -872,93 +848,3 @@ def verify_account_email(token: str) -> tuple[bool, str]:
             )
     return True, "Email address verified and saved."
 
-
-def request_password_reset(email: str) -> PasswordResetResult:
-    if not password_reset_email_configured():
-        return PasswordResetResult(
-            configured=False,
-            requested=False,
-            message="Password reset email is not configured. Add SMTP settings before enabling recovery.",
-        )
-    config = _email_config()
-    token = secrets.token_urlsafe(32)
-    token_hash = _hash_token(token)
-    now = _utc_now()
-    expires_at = now + timedelta(minutes=RESET_TOKEN_MINUTES)
-    with _connect() as conn:
-        _bootstrap_user(conn)
-        row = conn.execute(
-            "SELECT username, email FROM app_users WHERE lower(email) = lower(?)",
-            (email.strip(),),
-        ).fetchone()
-        if row is not None:
-            conn.execute(
-                """
-                INSERT INTO password_reset_tokens (token_hash, username, expires_at, created_at)
-                VALUES (?, ?, ?, ?)
-                """,
-                (token_hash, row["username"], expires_at.isoformat(), now.isoformat()),
-            )
-            conn.commit()
-            reset_link = f"{config['app_base_url'].rstrip('/')}?reset_token={token}"
-            message = EmailMessage()
-            message["Subject"] = "TESPH DSS password reset"
-            message["From"] = config["from_email"]
-            message["To"] = row["email"]
-            message.set_content(
-                "A password reset was requested for TheEverythingShopPH DSS.\n\n"
-                f"Open this link within {RESET_TOKEN_MINUTES} minutes to set a new password:\n{reset_link}\n\n"
-                "If you did not request this, you can ignore this email."
-            )
-            with smtplib.SMTP(config["smtp_host"], int(config["smtp_port"]), timeout=15) as smtp:
-                smtp.starttls()
-                smtp.login(config["smtp_username"], config["smtp_password"])
-                smtp.send_message(message)
-        else:
-            conn.execute(
-                "INSERT INTO auth_events (username, event_type, created_at) VALUES (?, ?, ?)",
-                (email.strip(), "password_reset_unknown_email", now.isoformat()),
-            )
-            conn.commit()
-    return PasswordResetResult(
-        configured=True,
-        requested=True,
-        message="If the email matches an account, a password reset link has been sent.",
-    )
-
-
-def reset_password_with_token(token: str, new_password: str) -> tuple[bool, str]:
-    valid, message = password_meets_requirements(new_password)
-    if not valid:
-        return False, message
-    token_hash = _hash_token(token)
-    now = _utc_now()
-    with _connect() as conn:
-        row = conn.execute(
-            """
-            SELECT token_hash, username, expires_at, used_at
-            FROM password_reset_tokens
-            WHERE token_hash = ?
-            """,
-            (token_hash,),
-        ).fetchone()
-        if row is None or row["used_at"] is not None:
-            return False, "This reset link is invalid or has already been used."
-        expires_at = datetime.fromisoformat(row["expires_at"])
-        if expires_at < now:
-            return False, "This reset link has expired."
-        now_text = now.isoformat()
-        conn.execute(
-            "UPDATE app_users SET password_hash = ?, password_length = ?, password_changed_at = ?, updated_at = ? WHERE username = ?",
-            (_hash_password(new_password), len(new_password), now_text, now_text, row["username"]),
-        )
-        conn.execute(
-            "UPDATE password_reset_tokens SET used_at = ? WHERE token_hash = ?",
-            (now_text, token_hash),
-        )
-        conn.execute(
-            "INSERT INTO auth_events (username, event_type, created_at) VALUES (?, ?, ?)",
-            (row["username"], "password_reset_completed", now_text),
-        )
-        conn.commit()
-    return True, "Password reset. Please sign in with your new password."

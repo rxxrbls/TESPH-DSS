@@ -175,7 +175,8 @@ def test_stock_upload_restores_dimension_from_existing_runtime_snapshot(monkeypa
     )
 
 
-def test_manual_stock_upload_loads_governed_product_dimension_without_session_schema(monkeypatch):
+def test_manual_stock_upload_loads_governed_product_dimension_without_session_schema(monkeypatch, tmp_path):
+    monkeypatch.setattr("etl_config.RUNTIME_DB_PATH", tmp_path / "absent.db")
     app = _select_and_confirm_stock(_run_stock_page(monkeypatch))
     app.session_state["star_schema"] = None
 

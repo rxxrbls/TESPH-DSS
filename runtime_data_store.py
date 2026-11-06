@@ -59,6 +59,7 @@ MISSING = "<TESPH:missing>"
 def runtime_database_lock(db_path: Path, *, timeout: float = 30) -> FileLock:
     """Return a cross-process lock shared by upload workflows for one database."""
     destination = Path(db_path).resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
     return FileLock(f"{destination}.upload.lock", timeout=timeout)
 
 
