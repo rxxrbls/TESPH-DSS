@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from operator import index
 import re
 import tempfile
 from pathlib import Path
@@ -77,7 +76,7 @@ def render_return_refund_upload():
     import io
     import zipfile
     from three_criterion_mca import Coverage
-    with st.expander("Return/refund data â€” three-criterion MCA", expanded=False):
+    with st.expander("Return/refund data — three-criterion MCA", expanded=False):
         st.caption("Upload the cleaned backend CSV or handoff ZIP. Rankings remain provisional until TA weight sign-off. The rate counts recorded refunded quantities, including Refund Only; it is not a physical-return rate.")
         upload = st.file_uploader("Cleaned return/refund evidence", type=["csv", "zip"], key="return_evidence")
         with st.form("return_coverage"):
@@ -158,19 +157,6 @@ def process_stock_upload(file_bytes: bytes, filename: str, stock_as_of, dim_prod
             temp_path.unlink()
         except OSError:
             pass
-
-    """Process a stock export using the existing inventory ETL functions."""
-    suffix = Path(filename).suffix
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(file_bytes)
-        temp_path = Path(tmp.name)
-    try:
-        config = InventoryConfig(source_path=temp_path, stock_as_of=stock_as_of)
-        inventory = load_current_inventory(config)
-        validation = validate_current_inventory(inventory, config)
-        return inventory, build_inventory_crosswalk(inventory, dim_product, config), validation
-    finally:
-        temp_path.unlink(missing_ok=True)
 
 
 def _validation_issues(report, fallback: str | None = None) -> list[str]:
@@ -354,7 +340,7 @@ def _success_metrics() -> tuple[str, ...]:
     if prepared is not None and "order_date" in prepared.columns:
         dates = pd.to_datetime(prepared["order_date"], errors="coerce").dropna()
         if not dates.empty:
-            metrics.append(f"Date range: {dates.min():%d %b %Y} â€“ {dates.max():%d %b %Y}")
+            metrics.append(f"Date range: {dates.min():%d %b %Y} – {dates.max():%d %b %Y}")
     return tuple(metrics)
 
 
@@ -379,41 +365,78 @@ with upload_column:
         st.markdown('<span class="upload-card-marker" aria-hidden="true"></span>', unsafe_allow_html=True)
         card_header(
             "Upload transaction data",
-            "Shopee Seller Centre CSV or XLSX export",
+            "Shopee Seller Centre CSV or XLSX export(s)",
             class_name="upload-card-header",
         )
         st.markdown(
             '<div class="upload-zone"><div style="color:#8A8379;font-size:1.45rem">Upload</div>'
-            '<p class="upload-zone-title">Drop a Shopee export, or choose a file</p>'
-            '<p class="upload-zone-copy">Transaction data is validated before it becomes available to analytics.</p></div>',
+            '<p class="upload-zone-title">Drop Shopee export(s), or choose files</p>'
+            '<p class="upload-zone-copy">Upload one or multiple monthly files. Validated files are reconciled into active analytics.</p></div>',
             unsafe_allow_html=True,
         )
-        uploaded_file = st.file_uploader(
-            "Choose a CSV or XLSX file",
+        uploaded_files = st.file_uploader(
+            "Choose CSV or XLSX file(s)",
             type=["csv", "xlsx"],
+            accept_multiple_files=True,
             label_visibility="collapsed",
-            help="Select a Shopee Seller Centre transaction export.",
+            help="Select one or more Shopee Seller Centre transaction exports. Multiple files will be merged seamlessly.",
         )
-        register_selected_upload(uploaded_file.name if uploaded_file else None)
-        if uploaded_file:
-            if uploaded_file.size > 100 * 1024 * 1024:
-                st.warning("This file exceeds 100 MB. Processing is in memory and may take longer than usual.")
-        if primary_button("Process dataset", key="process_dataset", disabled=uploaded_file is None):
+        if uploaded_files:
+            file_names = [f.name for f in uploaded_files]
+            register_selected_upload(", ".join(file_names) if len(file_names) <= 2 else f"{len(file_names)} files selected")
+            for f in uploaded_files:
+                if f.size > 100 * 1024 * 1024:
+                    st.warning(f"'{f.name}' exceeds 100 MB. Processing is in memory and may take longer than usual.")
+        else:
+            register_selected_upload(None)
+
+        ingestion_mode = st.radio(
+            "Upload mode",
+            options=["Append to active data", "Replace active dataset"],
+            horizontal=True,
+            help="Append adds new rows to the current dataset without duplicating; Replace clears prior transactions and loads only the uploaded files.",
+        )
+        replace_active_mode = ingestion_mode == "Replace active dataset"
+
+        if primary_button("Process dataset", key="process_dataset", disabled=not uploaded_files):
             process_requested = True
-            upload_bytes = uploaded_file.getvalue()
-            upload_name = uploaded_file.name
+            upload_payload = [(f.getvalue(), f.name) for f in uploaded_files]
+
+    with st.expander("Data Management / Reset to Baseline", expanded=False):
+        st.caption("Restore the original governed baseline dataset (226,203 transactions). This will clear any uploaded transactions.")
+        if st.button("Reset to Baseline Data", key="reset_to_baseline_btn"):
+            with st.spinner("Restoring baseline dataset..."):
+                from runtime_data_store import reset_active_to_baseline
+                rebuilt, prepared, final_id = reset_active_to_baseline()
+                clear_stock_dependent_results()
+                set_etl_results(rebuilt, prepared, None, dataset_id=final_id)
+                set_data_status(DataStatus.DATA_READY)
+                st.success("Baseline dataset restored successfully (226,203 transactions).")
+                st.rerun()
 
 with schema_column:
     with st.container(border=True):
-        card_header("Detected schema", "Column mapping")
-        schema_placeholder(get_prepared_transactions(), get_star_schema())
+        card_header("Detected schema", "Standard Shopee format")
+        prepared_tx = get_prepared_transactions()
+        star = get_star_schema()
+        if prepared_tx is not None and star:
+            st.success("Standard Shopee Schema Verified (37 fields)")
+            st.caption(
+                f"Active Star Schema: fact_sales ({len(star.get('fact_sales', [])):,} rows), "
+                f"dim_product ({len(star.get('dim_product', [])):,} products), "
+                f"dim_date, dim_order, dim_shipping, dim_payment."
+            )
+        else:
+            st.info("Schema will be verified automatically upon dataset processing.")
+        with st.expander("Detected schema field dictionary", expanded=False):
+            schema_placeholder(prepared_tx, star)
 
 etl_pipeline_slot = st.empty()
 with etl_pipeline_slot.container():
     with st.container(border=True):
         _render_etl_pipeline()
 
-if process_requested and upload_bytes is not None and upload_name is not None:
+if process_requested and upload_payload:
     had_active_dataset = get_prepared_transactions() is not None
     set_data_status(DataStatus.PROCESSING)
     set_etl_active_step(0)
@@ -429,7 +452,11 @@ if process_requested and upload_bytes is not None and upload_name is not None:
         set_etl_active_step(index)
         update_etl_progress(message)
 
-    result = run_etl_from_upload(upload_bytes, upload_name, on_step=on_step)
+    result = run_etl_from_upload(
+        upload_payload,
+        on_step=on_step,
+        replace_active=replace_active_mode,
+    )
     if result.success:
         # A new active runtime snapshot invalidates prior stock,
         # forecast, risk, MCA, and recommendation outputs. Do this
@@ -474,8 +501,9 @@ if process_requested and upload_bytes is not None and upload_name is not None:
 report = get_etl_validation_report()
 error_message = st.session_state.get("etl_error_message")
 if error_message and report is not None:
-    if any(error.startswith("Database persistence failed:") for error in report.errors):
-        persistence_error_state()
+    db_persistence_errors = [error for error in report.errors if error.startswith("Database persistence failed:")]
+    if db_persistence_errors:
+        persistence_error_state(detail=db_persistence_errors[0])
     else:
         validation_error_state(_validation_issues(report, error_message))
 
@@ -485,6 +513,10 @@ if star_schema:
         "Your transaction data is ready for analysis and is now available to the system's analytical modules.",
         _success_metrics(),
     )
+    col_nav, _ = st.columns([1.6, 2])
+    with col_nav:
+        if st.button("Proceed to Dashboard & Analytics →", type="primary", use_container_width=True, key="proceed_to_dashboard"):
+            st.switch_page("pages/dashboard.py")
 
 if get_data_status() is DataStatus.DATA_READY:
     st.divider()

@@ -229,7 +229,7 @@ else:
     classification_counts = movement["Movement Classification"].value_counts(dropna=False)
     movement_cards = [
         ("Fast moving", classification_counts.get("Fast Moving", 0), False),
-        ("Steady moving", classification_counts.get("Regular Moving", 0), False),
+        ("Regular moving", classification_counts.get("Regular Moving", 0), False),
         ("Slow moving", classification_counts.get("Slow Moving", 0), False),
         ("No movement", classification_counts.get("No Movement", 0), False),
     ]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import html
 import sqlite3
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -416,7 +417,7 @@ def _sqlite_count(db_path: Path, table_name: str) -> tuple[bool, int | None]:
     if not db_path.is_file():
         return False, None
     try:
-        with sqlite3.connect(db_path) as conn:
+        with closing(sqlite3.connect(db_path)) as conn:
             count = conn.execute(f'SELECT COUNT(*) FROM "{table_name}"').fetchone()[0]
         return True, int(count)
     except sqlite3.Error:
@@ -768,14 +769,12 @@ def _system_tab() -> None:
                   </div>
                 </div>
                 <p class="settings-system-section">Operational Database</p>
-                {_system_row("Database Type", "SQLite (Local)")}
-                {_system_row("Database File", _relative_path(RUNTIME_DB_PATH))}
+                {_system_row("Database Engine", "SQLite Transaction Store")}
                 {_system_row("Connection Status", operational_status, status="connected" if operational_connected else "warning")}
                 {_system_row("Total Transaction Records", f"{operational_rows or 0:,}")}
                 <div class="settings-system-divider"></div>
                 <p class="settings-system-section">Analytical Database</p>
-                {_system_row("Database Type", "SQLite (Local)" if analytical_connected else "CSV Star Schema")}
-                {_system_row("Database File", _relative_path(STAR_SCHEMA_DB_PATH if analytical_connected else FINAL_OUTPUT_DIR / "fact_sales.csv"))}
+                {_system_row("Database Engine", "Star Schema Dimensional Store")}
                 {_system_row("Connection Status", analytical_status, status="connected" if analytical_rows is not None else "warning")}
                 {_system_row("Total Fact Sales Records", f"{analytical_rows or 0:,}")}
                 """,

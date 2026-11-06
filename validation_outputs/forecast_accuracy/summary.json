@@ -35,5 +35,5 @@
   },
   "history_end": "2026-04-24 00:00:00",
   "checks": "PASS: independent metrics, common holdout coverage, source actuals, model selection, forecast metric propagation, Streamlit page values",
-  "elapsed_seconds": 120.021
+  "elapsed_seconds": 30.214
 }

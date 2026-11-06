@@ -138,6 +138,21 @@ def _temporary_database_path(db_path: Path) -> Path:
     return Path(candidate)
 
 
+def _atomic_replace_database(candidate: Path, destination: Path, *, max_retries: int = 5, retry_delay: float = 0.2) -> None:
+    """Atomically replace destination with candidate on Windows with transient lock retries."""
+    import gc
+    import time
+    for attempt in range(max_retries):
+        try:
+            os.replace(candidate, destination)
+            return
+        except PermissionError:
+            if attempt == max_retries - 1:
+                raise
+            gc.collect()
+            time.sleep(retry_delay * (attempt + 1))
+
+
 def load_star_schema(
     star_schema: dict[str, pd.DataFrame],
     prepared_transactions: pd.DataFrame | None = None,
@@ -166,7 +181,7 @@ def load_star_schema(
             for table_name in LOAD_ORDER:
                 counts[table_name] = load_table(conn, table_name, star_schema[table_name])
         _validate_persisted_database(candidate, counts)
-        os.replace(candidate, destination)
+        _atomic_replace_database(candidate, destination)
     except Exception:
         candidate.unlink(missing_ok=True)
         raise
@@ -247,7 +262,7 @@ def load_runtime_snapshot(
             columns = [row[1] for row in conn.execute("PRAGMA table_info(prepared_transactions)")]
             if columns != list(FINAL_SCHEMAS["prepared_transactions"]):
                 raise RuntimeError("SQLite prepared transaction schema mismatch")
-        os.replace(candidate, destination)
+        _atomic_replace_database(candidate, destination)
     except Exception:
         candidate.unlink(missing_ok=True)
         raise

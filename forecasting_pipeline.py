@@ -1,4 +1,10 @@
-"""Week 2 SKU pipeline entry point and legacy category validation helpers.
+"""Forecasting pipeline entry point and category-level reference validation helpers.
+
+NOTE ON ACTIVE IMPLEMENTATION:
+Production SKU demand forecasting is orchestrated by `sku_forecasting.py` (which runs
+SKU-level forecasting with Moving Average, Exponential Smoothing, and Linear Regression,
+nested parameter tuning, and expanding-origin holdout backtesting). The category-level
+routines in this module serve as reference and verification artifacts.
 
 Orchestrates: data prep → category eligibility → rolling validation →
 alpha grid search → model selection → final forecast → clean output.

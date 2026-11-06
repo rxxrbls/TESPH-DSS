@@ -56,7 +56,10 @@ def extract_file(path: str | Path) -> pd.DataFrame:
         # validator for both input formats.
         source_dtypes = {column: "string" for column in TEXT_SOURCE_COLUMNS}
         if suffix == ".csv":
-            frame = pd.read_csv(source, low_memory=False, dtype=source_dtypes)
+            try:
+                frame = pd.read_csv(source, low_memory=False, dtype=source_dtypes, encoding="utf-8-sig")
+            except UnicodeDecodeError:
+                frame = pd.read_csv(source, low_memory=False, dtype=source_dtypes, encoding="cp1252")
         elif suffix == ".xlsx":
             # Keep the existing sheet-selection behavior while ensuring the
             # temporary upload can be deleted on Windows after extraction.

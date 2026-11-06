@@ -4,7 +4,7 @@ import streamlit as st
 
 from utils.analytics_display import currency, number, render_category_mix, render_priority_recommendations, render_product_performance, render_sales_trend
 from utils.components import empty_state, guard_protected_page, info_message, kpi_card, primary_button, render_page_shell, section_header
-from utils.state import DataStatus, ensure_derived_outputs_for_active_dataset, get_analytics_error_message, get_analytics_results, get_data_status, get_recommendation_results
+from utils.state import DataStatus, ensure_derived_outputs_for_active_dataset, get_analytics_error_message, get_analytics_results, get_data_status, get_recommendation_results, get_risk_results
 
 
 guard_protected_page()
@@ -26,8 +26,8 @@ st.markdown(
     div.st-key-view_all_recommendations {
     display: flex !important;
     justify-content: flex-end !important;
-    margin-top: 1.85rem !important;
-    margin-left: 3rem !important;
+    align-items: center !important;
+    margin: 0 !important;
     }
 
     div.st-key-view_all_recommendations .stButton > button[kind="secondary"],
@@ -101,6 +101,16 @@ if not analytics or analytics.get("sales_summary") is None or analytics["sales_s
     if get_analytics_error_message():
         info_message(get_analytics_error_message())
     st.stop()
+
+risk_data = get_risk_results()
+if risk_data is not None and not risk_data.empty and "Stock-Out Risk" in risk_data.columns:
+    crit_count = int((risk_data["Stock-Out Risk"] == "Critical").sum())
+    high_count = int((risk_data["Stock-Out Risk"] == "High").sum())
+    if crit_count > 0 or high_count > 0:
+        st.warning(
+            f"⚠️ **Immediate Action Required**: {crit_count} Critical and {high_count} High stock-out risk item(s) detected. "
+            "Navigate to **Replenishment Recommendations** to review purchasing quantities."
+        )
 
 summary = analytics["sales_summary"].iloc[0]
 section_header("Store overview", "A current view of the processed Shopee transaction dataset.")

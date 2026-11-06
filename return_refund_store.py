@@ -10,6 +10,7 @@ import io
 import json
 from pathlib import Path
 import sqlite3
+from contextlib import closing
 from uuid import uuid4
 
 import pandas as pd
@@ -36,7 +37,7 @@ def refresh_batch(path, *, batch_type, calculate, snapshot=None, coverage=None):
         raise ValueError("Unsupported batch type")
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(path, timeout=30) as connection:
+    with closing(sqlite3.connect(path, timeout=30)) as connection, connection:
         connection.execute("CREATE TABLE IF NOT EXISTS state(name TEXT PRIMARY KEY,payload TEXT NOT NULL)")
         connection.execute("CREATE TABLE IF NOT EXISTS audit(event_id INTEGER PRIMARY KEY,run_id TEXT,payload TEXT NOT NULL)")
         connection.execute("CREATE TABLE IF NOT EXISTS snapshots(fingerprint TEXT PRIMARY KEY,payload TEXT NOT NULL)")
@@ -91,7 +92,7 @@ def refresh_batch(path, *, batch_type, calculate, snapshot=None, coverage=None):
 
 def invalidate_outputs(path):
     """An accepted sales batch makes previous stock-dependent results stale."""
-    with sqlite3.connect(path, timeout=30) as connection:
+    with closing(sqlite3.connect(path, timeout=30)) as connection, connection:
         _write(connection, "outputs", {})
         _write(connection, "review_state", "pending sales refresh")
 
@@ -99,7 +100,7 @@ def invalidate_outputs(path):
 def load_evidence(path):
     if not Path(path).exists():
         return None
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection:
         if not connection.execute("SELECT 1 FROM sqlite_master WHERE name='state'").fetchone():
             return None
         policy = _read(connection, "coverage", None)

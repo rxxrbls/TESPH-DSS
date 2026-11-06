@@ -190,6 +190,8 @@ def _read_runtime_database(db_path: Path) -> RuntimeState | None:
         tables = {
             row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         }
+        if not tables:
+            return None
         required = {"prepared_transactions", "ingestion_batches", "runtime_metadata"}
         if not required.issubset(tables):
             raise RuntimeError("Runtime database is missing active transaction tables")
@@ -354,3 +356,41 @@ def publish_validated_upload(
             logging.getLogger(__name__).exception("Sales saved but return/refund review is pending")
             summary["return_review_status"] = "pending; MCA outputs unavailable until successful refresh"
         return rebuilt, prepared, summary, final_dataset_id
+
+
+def reset_active_to_baseline(
+    *,
+    db_path: Path = RUNTIME_DB_PATH,
+    baseline_path: Path = BASELINE_PATH,
+) -> tuple[dict[str, pd.DataFrame], pd.DataFrame, str]:
+    """Atomically reset the runtime active transactions database to the governed baseline."""
+    baseline_path = Path(baseline_path)
+    db_path = Path(db_path)
+    with runtime_database_lock(db_path):
+        baseline = load_prepared_transactions(baseline_path.parent)
+        validate_final_schema(baseline.columns, "prepared_transactions")
+        star_input = baseline.drop(
+            columns=["final_base_product_name", "final_category"], errors="ignore"
+        )
+        rebuilt = build_star_schema_tables(star_input)
+        prepared = rebuilt.pop("prepared_transactions")
+        validate_final_schema(prepared.columns, "prepared_transactions")
+        final_dataset_id = _dataset_id(payload_fingerprints(prepared))
+        load_runtime_snapshot(
+            rebuilt,
+            prepared,
+            _empty_batches(),
+            {
+                "dataset_id": final_dataset_id,
+                "baseline_path": str(baseline_path.resolve()),
+                "baseline_immutable": "true",
+                "reconciliation_policy": "exact-content-add-only; possible-corrections-quarantined",
+            },
+            db_path,
+        )
+        from mca_refresh import review_after_sales
+        try:
+            review_after_sales(prepared, db_path)
+        except Exception:
+            pass
+        return rebuilt, prepared, final_dataset_id

@@ -1365,10 +1365,13 @@ def validation_error_state(issues: Sequence[str]) -> None:
     )
 
 
-def persistence_error_state() -> None:
+def persistence_error_state(detail: str | None = None) -> None:
     """Explain that validated data could not be saved without blaming the file."""
     st.markdown(
         '<div class="validation-panel"><p class="state-title">Data validated, but not saved</p>'
         '<p class="state-copy">The uploaded data passed validation, but the system could not save the processed data because the database is temporarily unavailable. The active dataset was not changed. Please retry shortly.</p></div>',
         unsafe_allow_html=True,
     )
+    if detail:
+        with st.expander("Technical error details", expanded=False):
+            st.caption(html.escape(detail))

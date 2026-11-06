@@ -280,24 +280,23 @@ if forecast is None or forecast.empty:
 
 audit = get_mca_audit()
 is_three = audit is not None and THREE_RATE in audit.columns if audit is not None else False
-st.subheader("MCA readiness")
-if is_three:
-    st.caption("Three-criterion MCA: Sales Velocity, Forecasted Demand, and Recorded Return/Refund Quantity Rate (%). TA-approved equal-third baseline weights; historical validation accepted by TA. Complete eligible SKUs only; Min-Max normalization, valid constant criteria = 0.5, missing/unresolved criteria = N/A and exclusion. Selected request-date coverage is not lifetime return history.")
-else:
-    st.caption("Legacy five criteria: Sales Velocity, Profit Margin, Supplier Lead Time, Forecasted Demand, Return Rate. Upload the cleaned return/refund evidence under Data Upload to activate the TA-approved three-criterion assessment. Legacy weights: 20% each.")
 
-if audit is not None and not audit.empty:
-    display_audit = audit.copy()
-    display_criteria = THREE_CRITERIA if is_three else LEGACY_CRITERIA
-    for criterion in display_criteria:
-        if criterion in display_audit.columns:
-            display_audit[criterion] = audit[criterion].map(
-                lambda value: "N/A" if pd.isna(value) else format(value, ".6g")
-            )
-    st.dataframe(display_audit, hide_index=True)
-    st.download_button("Download MCA readiness audit", audit.to_csv(index=False), "mca_readiness.csv", "text/csv")
+with st.expander("Decision Audit Trail & Criteria Diagnostics", expanded=False):
+    if is_three:
+        st.caption("Three-criterion MCA: Sales Velocity, Forecasted Demand, and Recorded Return/Refund Quantity Rate (%). TA-approved equal-third baseline weights; historical validation accepted by TA. Complete eligible SKUs only; Min-Max normalization, valid constant criteria = 0.5, missing/unresolved criteria = N/A and exclusion. Selected request-date coverage is not lifetime return history.")
+    else:
+        st.caption("Legacy five criteria: Sales Velocity, Profit Margin, Supplier Lead Time, Forecasted Demand, Return Rate. Upload the cleaned return/refund evidence under Data Upload to activate the TA-approved three-criterion assessment. Legacy weights: 20% each.")
 
-
+    if audit is not None and not audit.empty:
+        display_audit = audit.copy()
+        display_criteria = THREE_CRITERIA if is_three else LEGACY_CRITERIA
+        for criterion in display_criteria:
+            if criterion in display_audit.columns:
+                display_audit[criterion] = audit[criterion].map(
+                    lambda value: "N/A" if pd.isna(value) else format(value, ".6g")
+                )
+        st.dataframe(display_audit, hide_index=True)
+        st.download_button("Download MCA readiness audit", audit.to_csv(index=False), "mca_readiness.csv", "text/csv")
 
 mca = _frame(get_mca_results())
 if mca.empty:
@@ -317,7 +316,7 @@ approved_ranked = _approved_with_products(mca, lookup)
 
 section_header(
     "Product Prioritization",
-    "Review the current SKU-level product priority rankings generated from the active dataset.",
+    "Ranks SKUs by overall business priority using a balanced evaluation of Sales Velocity, Forecast Demand, and Return Rates.",
 )
 
 left, right = st.columns((0.28, 0.72), gap="small", vertical_alignment="top")
@@ -330,20 +329,19 @@ with right:
     with st.container(border=True):
         st.markdown('<p class="priority-card-title">Top Priority Products</p>', unsafe_allow_html=True)
         st.markdown(
-            '<p class="priority-card-copy">Products with the highest overall MCA scores are shown first, based on the approved evaluation criteria.</p>',
+            '<p class="priority-card-copy">Products with the highest overall MCA scores are prioritized first to optimize inventory capital allocation.</p>',
             unsafe_allow_html=True,
         )
 
     with st.container(border=True):
         st.markdown('<p class="priority-card-title">Product Prioritization Ranking</p>', unsafe_allow_html=True)
         st.markdown(
-            '<p class="priority-card-copy">Review each product ranking, priority level, and the main factors behind its MCA score.</p>',
+            '<p class="priority-card-copy">Review product rankings, priority level tiers (High, Medium, Low), and key drivers.</p>',
             unsafe_allow_html=True,
         )
         ranking = _ranking_table(approved_ranked)
         st.dataframe(
             ranking,
-            height=180,
             hide_index=True,
             use_container_width=True,
             column_config={
@@ -353,48 +351,33 @@ with right:
         )
 
     with st.container(border=True):
-        st.markdown('<p class="priority-card-title">Priority Detail</p>', unsafe_allow_html=True)
+        st.markdown('<p class="priority-card-title">Priority Detail Breakdown</p>', unsafe_allow_html=True)
         st.markdown(
-            '<p class="priority-card-copy">Inspect the approved criteria values and weighted contributions for a selected product.</p>',
+            '<p class="priority-card-copy">Select an SKU to inspect its individual criteria values and weighted score contributions.</p>',
             unsafe_allow_html=True,
         )
         _render_details(approved_ranked, active_criteria, active_weights)
 
-    with st.container(border=True):
-        st.markdown('<p class="priority-card-title">Approved MCA Output</p>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="priority-card-copy">Audit the approved prioritization records currently powering this page.</p>',
-            unsafe_allow_html=True,
-        )
-        st.subheader("SKU Priority Score and criteria contributions")
-        st.dataframe(
-            mca,
-            hide_index=True,
-            use_container_width=True,
-        )
-        st.download_button("Download MCA rankings", mca.to_csv(index=False), "mca_rankings.csv", "text/csv")
+with st.expander("Approved Normalized Matrix & Alternative Scenarios", expanded=False):
+    st.markdown("#### Full Normalized MCA Matrix")
+    st.dataframe(mca, hide_index=True, use_container_width=True)
+    st.download_button("Download MCA rankings", mca.to_csv(index=False), "mca_rankings.csv", "text/csv")
 
-    with st.container(border=True):
-        st.markdown('<p class="priority-card-title">Approved Criteria Weights</p>', unsafe_allow_html=True)
-        st.markdown(
-            '<p class="priority-card-copy">Reference the current MCA criteria and their approved weighting.</p>',
-            unsafe_allow_html=True,
-        )
-        st.dataframe(
-            pd.DataFrame(
-                [
-                    {"Criterion": criterion, "Weight": float(active_weights.get(criterion, 0.0))}
-                    for criterion in active_criteria
-                ]
-            ),
-            height=180,
-            hide_index=True,
-            use_container_width=True,
-            column_config={"Weight": st.column_config.NumberColumn("Weight", format="%.3f")},
-        )
+    st.markdown("#### Approved Criteria Weights")
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {"Criterion": criterion, "Weight": float(active_weights.get(criterion, 0.0))}
+                for criterion in active_criteria
+            ]
+        ),
+        hide_index=True,
+        use_container_width=True,
+        column_config={"Weight": st.column_config.NumberColumn("Weight", format="%.3f")},
+    )
 
-comparison = st.session_state.get("mca_sensitivity")
-if is_three and comparison is not None:
-    st.subheader("Historical alternative weight sensitivity")
-    st.dataframe(comparison, hide_index=True)
-    st.download_button("Download weight comparison", comparison.to_csv(index=False), "mca_weight_comparison.csv", "text/csv")
+    comparison = st.session_state.get("mca_sensitivity")
+    if is_three and comparison is not None:
+        st.markdown("#### Weight Sensitivity Scenarios")
+        st.dataframe(comparison, hide_index=True)
+        st.download_button("Download weight comparison", comparison.to_csv(index=False), "mca_weight_comparison.csv", "text/csv")

@@ -70,32 +70,32 @@ class ETLResult:
 from utils.etl_errors import get_user_message
 
 def run_etl_from_upload(
-    file_bytes: bytes,
-    filename: str,
+    upload_bytes: bytes | list[tuple[bytes, str]],
+    filename: str | None = None,
     *,
     on_step: callable | None = None,
     db_path: Path | None = None,
     baseline_path: Path | None = None,
+    replace_active: bool = False,
 ) -> ETLResult:
-    """Execute the full ETL pipeline from uploaded file bytes.
+    """Execute the full ETL pipeline from uploaded file bytes or multi-file batches.
 
     Parameters
     ----------
-    file_bytes : bytes
-        Raw bytes from st.file_uploader.
-    filename : str
-        Original filename (used to determine CSV vs XLSX).
+    upload_bytes : bytes or list of tuple (bytes, str)
+        Raw bytes from st.file_uploader or a list of (file_bytes, filename) tuples.
+    filename : str, optional
+        Original filename (used to determine CSV vs XLSX when upload_bytes is bytes).
     on_step : callable, optional
         Callback ``(step_index: int, step_name: str, message: str) -> None``
-        invoked before each step starts. The Streamlit layer uses this
-        to update ``set_etl_active_step()`` and render progress.
+        invoked before each step starts.
     db_path : pathlib.Path, optional
-        Destination for the local reconciled runtime snapshot. Injection keeps
-        tests isolated. The governed ``final_outputs`` baseline is never the
-        destination.
+        Destination for the local reconciled runtime snapshot.
     baseline_path : pathlib.Path, optional
-        Immutable prepared historical handoff used only when bootstrapping a
-        new runtime snapshot. Tests can provide a small isolated baseline.
+        Immutable prepared historical handoff.
+    replace_active : bool, optional
+        If True, clears prior active transactions and sets the uploaded dataset as
+        the clean active history instead of merging incrementally. Default is False.
 
     Returns
     -------
@@ -107,45 +107,62 @@ def run_etl_from_upload(
     warnings: list[str] = []
     errors: list[str] = []
 
+    if isinstance(upload_bytes, (bytes, bytearray)):
+        file_list: list[tuple[bytes, str]] = [(bytes(upload_bytes), filename or "uploaded_file.csv")]
+    else:
+        file_list = list(upload_bytes)
+
+    if not file_list:
+        raise ValueError("No files provided for upload processing.")
+
+    primary_filename = filename or file_list[0][1]
+    if len(file_list) > 1:
+        primary_filename = f"{len(file_list)} files ({', '.join(f[1] for f in file_list[:3])}{'...' if len(file_list) > 3 else ''})"
+
     def _notify(index: int, name: str, msg: str) -> None:
         if on_step:
             on_step(index, name, msg)
 
     # ── Step 0: Ingest ──────────────────────────────────────────────
-    _notify(0, "Ingest", "Reading uploaded file...")
+    _notify(0, "Ingest", f"Reading {len(file_list)} uploaded file(s)..." if len(file_list) > 1 else "Reading uploaded file...")
+    temp_paths: list[Path] = []
     try:
-        temp_path = _bytes_to_temp_path(file_bytes, filename)
-        raw_df = extract_file(temp_path)
-        temp_path.unlink(missing_ok=True)  # Clean up temp file
-        # Uploaded monthly exports do not carry the provenance fields used by
-        # the canonical handoff. Add their truthful upload provenance once;
-        # never replace provenance already present in a combined export.
-        if "source_file" not in raw_df.columns:
-            raw_df["source_file"] = filename
-        if "source_folder" not in raw_df.columns:
-            raw_df["source_folder"] = "uploaded"
-        
+        raw_frames: list[pd.DataFrame] = []
+        for f_bytes, f_name in file_list:
+            t_path = _bytes_to_temp_path(f_bytes, f_name)
+            temp_paths.append(t_path)
+            sub_df = extract_file(t_path)
+            t_path.unlink(missing_ok=True)
+            if "source_file" not in sub_df.columns:
+                sub_df["source_file"] = f_name
+            if "source_folder" not in sub_df.columns:
+                sub_df["source_folder"] = "uploaded"
+            raw_frames.append(sub_df)
+
+        raw_df = pd.concat(raw_frames, ignore_index=True) if len(raw_frames) > 1 else raw_frames[0]
+
         if raw_df.empty:
-            raise ValueError("The file contains no data rows.")
-        
+            raise ValueError("The uploaded file(s) contain no data rows.")
+
+        file_label = f"from {len(file_list)} files" if len(file_list) > 1 else ""
         steps.append(ETLStepResult(
             step_name="Ingest", step_index=0, success=True,
-            message=f"Extracted {len(raw_df):,} rows × {len(raw_df.columns)} columns",
-            details={"row_count": len(raw_df), "column_count": len(raw_df.columns)},
+            message=f"Extracted {len(raw_df):,} rows × {len(raw_df.columns)} columns {file_label}".strip(),
+            details={"row_count": len(raw_df), "column_count": len(raw_df.columns), "file_count": len(file_list)},
         ))
     except Exception as exc:
-        if 'temp_path' in locals():
-            temp_path.unlink(missing_ok=True)
-            
+        for t_path in temp_paths:
+            t_path.unlink(missing_ok=True)
+
         error_key = "empty_file" if "no data rows" in str(exc).lower() else "ingestion_failed"
         user_msg = get_user_message(error_key, str(exc))
-        
+
         steps.append(ETLStepResult(
             step_name="Ingest", step_index=0, success=False,
             message=user_msg,
         ))
         return ETLResult(
-            success=False, source_filename=filename,
+            success=False, source_filename=primary_filename,
             star_schema={}, prepared_transactions=None,
             validation_report=_build_report(steps, warnings, errors, False),
             error_message=user_msg,
@@ -309,63 +326,15 @@ def run_etl_from_upload(
             runtime_lock.acquire(timeout=30)
             runtime_lock_acquired = True
 
-            # Sub-phase 1: load the active runtime snapshot (may read a large DB).
-            _notify(
-                4, "Load",
-                "Load / Reading active transaction snapshot from runtime database..."
-            )
-            active = _load_active(db_path=_db_path, baseline_path=_bl_path)
-
-            # Sub-phase 2: reconcile staged rows against the active history.
-            _notify(
-                4, "Load",
-                f"Load / Reconciling {len(prepared):,} staged rows against "
-                f"{len(active.transactions):,} active rows..."
-            )
-            reconciled = _reconcile(prepared, active, source_filename=filename)
-
-            zero_new_rows = (
-                not active.bootstrapped_from_baseline
-                and reconciled.summary.get("new_rows", 0) == 0
-                and reconciled.dataset_id == active.dataset_id
-            )
-
-            if zero_new_rows:
+            if replace_active:
                 _notify(
                     4, "Load",
-                    "Load / Reusing the published runtime snapshot; no new authoritative rows were detected..."
+                    f"Load / Replacing active dataset with {len(prepared):,} uploaded rows..."
                 )
-                star_schema = _read_stars(_db_path)
-                prepared = active.transactions
-                batch_id = reconciled.summary["batch_id"]
-                audit_batch = reconciled.batches.loc[
-                    reconciled.batches["batch_id"].eq(batch_id)
-                ].iloc[[-1]]
-                _notify(
-                    4, "Load",
-                    "Load / Recording the validated ingestion batch without republishing the active snapshot..."
-                )
-                _record_batch(
-                    audit_batch,
-                    expected_dataset_id=active.dataset_id,
-                    db_path=_db_path,
-                )
-                _summary = dict(reconciled.summary)
-                _summary["active_rows"] = len(prepared)
-                _summary["star_fact_rows"] = len(star_schema["fact_sales"])
-                reconciliation_summary = _summary
-                dataset_id = active.dataset_id
-                db_counts = {name: len(table) for name, table in star_schema.items()}
-                db_loaded = True
-                reused_existing_outputs = True
-            else:
-                # Sub-phase 3: rebuild the complete star schema from merged rows.
-                _notify(
-                    4, "Load",
-                    f"Load / Building star schema from {len(reconciled.transactions):,} "
-                    "consolidated rows..."
-                )
-                star_input = reconciled.transactions.drop(
+                from datetime import datetime, timezone
+                from runtime_data_store import BATCH_COLUMNS
+
+                star_input = prepared.drop(
                     columns=["final_base_product_name", "final_category"], errors="ignore"
                 )
                 rebuilt = build_star_schema_tables(star_input)
@@ -373,36 +342,147 @@ def run_etl_from_upload(
                 validate_final_schema(_prepared.columns, "prepared_transactions")
                 _final_id = _did(_fp(_prepared))
 
-                # Sub-phase 4: atomically persist the validated snapshot to SQLite.
-                _notify(
-                    4, "Load",
-                    f"Load / Persisting {len(_prepared):,} active rows and star schema to "
-                    "runtime database..."
-                )
+                batch_id = f"batch-{_final_id[-10:]}"
+                batches = pd.DataFrame([{
+                    "batch_id": batch_id,
+                    "dataset_id": _final_id,
+                    "source_filename": primary_filename,
+                    "staged_rows": len(_prepared),
+                    "within_upload_duplicates": dup_count if "dup_count" in locals() else 0,
+                    "existing_exact_rows": 0,
+                    "new_rows": len(_prepared),
+                    "possible_correction_rows": 0,
+                    "ambiguous_identity_rows": 0,
+                    "active_rows": len(_prepared),
+                    "uploaded_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+                }])[BATCH_COLUMNS]
+
                 _counts = _load_snap(
                     rebuilt,
                     _prepared,
-                    reconciled.batches,
+                    batches,
                     {
                         "dataset_id": _final_id,
                         "baseline_path": str(Path(_bl_path).resolve()),
                         "baseline_immutable": "true",
-                        "reconciliation_policy":
-                            "exact-content-add-only; possible-corrections-quarantined",
+                        "reconciliation_policy": "replace-active-dataset",
                     },
                     _db_path,
                 )
-                _summary = dict(reconciled.summary)
-                _summary["active_rows"] = len(_prepared)
-                _summary["star_fact_rows"] = _counts["fact_sales"]
-
+                reconciliation_summary = {
+                    "batch_id": batch_id,
+                    "source_filename": primary_filename,
+                    "staged_rows": len(_prepared),
+                    "within_upload_duplicates": dup_count if "dup_count" in locals() else 0,
+                    "existing_exact_rows": 0,
+                    "new_rows": len(_prepared),
+                    "possible_correction_rows": 0,
+                    "ambiguous_identity_rows": 0,
+                    "active_rows": len(_prepared),
+                    "star_fact_rows": _counts["fact_sales"],
+                    "mode": "replace",
+                }
                 star_schema = rebuilt
                 prepared = _prepared
-                reconciliation_summary = _summary
                 dataset_id = _final_id
                 db_counts = {name: len(table) for name, table in star_schema.items()}
                 db_loaded = True
                 reused_existing_outputs = False
+            else:
+                # Sub-phase 1: load the active runtime snapshot (may read a large DB).
+                _notify(
+                    4, "Load",
+                    "Load / Reading active transaction snapshot from runtime database..."
+                )
+                active = _load_active(db_path=_db_path, baseline_path=_bl_path)
+
+                # Sub-phase 2: reconcile staged rows against the active history.
+                _notify(
+                    4, "Load",
+                    f"Load / Reconciling {len(prepared):,} staged rows against "
+                    f"{len(active.transactions):,} active rows..."
+                )
+                reconciled = _reconcile(prepared, active, source_filename=primary_filename)
+
+                zero_new_rows = (
+                    not active.bootstrapped_from_baseline
+                    and reconciled.summary.get("new_rows", 0) == 0
+                    and reconciled.dataset_id == active.dataset_id
+                )
+
+                if zero_new_rows:
+                    _notify(
+                        4, "Load",
+                        "Load / Reusing the published runtime snapshot; no new authoritative rows were detected..."
+                    )
+                    star_schema = _read_stars(_db_path)
+                    prepared = active.transactions
+                    batch_id = reconciled.summary["batch_id"]
+                    audit_batch = reconciled.batches.loc[
+                        reconciled.batches["batch_id"].eq(batch_id)
+                    ].iloc[[-1]]
+                    _notify(
+                        4, "Load",
+                        "Load / Recording the validated ingestion batch without republishing the active snapshot..."
+                    )
+                    _record_batch(
+                        audit_batch,
+                        expected_dataset_id=active.dataset_id,
+                        db_path=_db_path,
+                    )
+                    _summary = dict(reconciled.summary)
+                    _summary["active_rows"] = len(prepared)
+                    _summary["star_fact_rows"] = len(star_schema["fact_sales"])
+                    reconciliation_summary = _summary
+                    dataset_id = active.dataset_id
+                    db_counts = {name: len(table) for name, table in star_schema.items()}
+                    db_loaded = True
+                    reused_existing_outputs = True
+                else:
+                    # Sub-phase 3: rebuild the complete star schema from merged rows.
+                    _notify(
+                        4, "Load",
+                        f"Load / Building star schema from {len(reconciled.transactions):,} "
+                        "consolidated rows..."
+                    )
+                    star_input = reconciled.transactions.drop(
+                        columns=["final_base_product_name", "final_category"], errors="ignore"
+                    )
+                    rebuilt = build_star_schema_tables(star_input)
+                    _prepared = rebuilt.pop("prepared_transactions")
+                    validate_final_schema(_prepared.columns, "prepared_transactions")
+                    _final_id = _did(_fp(_prepared))
+
+                    # Sub-phase 4: atomically persist the validated snapshot to SQLite.
+                    _notify(
+                        4, "Load",
+                        f"Load / Persisting {len(_prepared):,} active rows and star schema to "
+                        "runtime database..."
+                    )
+                    _counts = _load_snap(
+                        rebuilt,
+                        _prepared,
+                        reconciled.batches,
+                        {
+                            "dataset_id": _final_id,
+                            "baseline_path": str(Path(_bl_path).resolve()),
+                            "baseline_immutable": "true",
+                            "reconciliation_policy":
+                                "exact-content-add-only; possible-corrections-quarantined",
+                        },
+                        _db_path,
+                    )
+                    _summary = dict(reconciled.summary)
+                    _summary["active_rows"] = len(_prepared)
+                    _summary["star_fact_rows"] = _counts["fact_sales"]
+
+                    star_schema = rebuilt
+                    prepared = _prepared
+                    reconciliation_summary = _summary
+                    dataset_id = _final_id
+                    db_counts = {name: len(table) for name, table in star_schema.items()}
+                    db_loaded = True
+                    reused_existing_outputs = False
             from mca_refresh import review_after_sales
             try:
                 review_after_sales(prepared, _db_path)
@@ -436,7 +516,7 @@ def run_etl_from_upload(
 
     return ETLResult(
         success=all_valid and db_loaded,
-        source_filename=filename,
+        source_filename=primary_filename,
         star_schema=star_schema,
         prepared_transactions=prepared,
         validation_report=_build_report(

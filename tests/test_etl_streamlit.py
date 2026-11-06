@@ -187,3 +187,71 @@ def test_database_publication_failure_preserves_existing_active_history(monkeypa
     pd.testing.assert_frame_equal(before.transactions, after.transactions, check_dtype=False)
     assert db_path.read_bytes() == before_database
     assert "UPLOAD-2" not in set(after.transactions["Order ID"])
+
+
+def test_multi_file_upload_ingests_and_reconciles_multiple_files(tmp_path):
+    db_path = tmp_path / "runtime.db"
+    baseline_path = tmp_path / "prepared_transactions.csv"
+    _write_baseline(baseline_path, order_id="BASE-001")
+
+    file1 = (_upload_bytes("BATCH-FILE1"), "january.csv")
+    file2 = (_upload_bytes("BATCH-FILE2"), "february.csv")
+
+    result = run_etl_from_upload(
+        [file1, file2],
+        db_path=db_path,
+        baseline_path=baseline_path,
+    )
+
+    assert result.success is True
+    assert result.validation_report.row_count == 2
+    assert result.reconciliation_summary["new_rows"] == 2
+    assert result.reconciliation_summary["active_rows"] == 3
+    assert len(result.prepared_transactions) == 3
+    assert {"BASE-001", "BATCH-FILE1", "BATCH-FILE2"}.issubset(set(result.prepared_transactions["Order ID"]))
+
+
+def test_replace_active_mode_clears_prior_history(tmp_path):
+    db_path = tmp_path / "runtime.db"
+    baseline_path = tmp_path / "prepared_transactions.csv"
+    _write_baseline(baseline_path, order_id="BASE-001")
+
+    # Initial append
+    run_etl_from_upload(
+        _upload_bytes("UPLOAD-001"), "first.csv",
+        db_path=db_path, baseline_path=baseline_path,
+    )
+    mid = load_active_state(db_path=db_path, baseline_path=baseline_path)
+    assert len(mid.transactions) == 2
+
+    # Now replace mode with a single new row
+    result = run_etl_from_upload(
+        _upload_bytes("REPLACE-001"), "replacement.csv",
+        db_path=db_path, baseline_path=baseline_path,
+        replace_active=True,
+    )
+    assert result.success is True
+    assert result.reconciliation_summary["active_rows"] == 1
+    assert list(result.prepared_transactions["Order ID"]) == ["REPLACE-001"]
+
+
+def test_reset_active_to_baseline_restores_governed_data(tmp_path):
+    from runtime_data_store import reset_active_to_baseline
+    db_path = tmp_path / "runtime.db"
+    baseline_path = tmp_path / "prepared_transactions.csv"
+    _write_baseline(baseline_path, order_id="GOVERNED-001")
+
+    # Upload custom row with replace
+    run_etl_from_upload(
+        _upload_bytes("CUSTOM-001"), "custom.csv",
+        db_path=db_path, baseline_path=baseline_path,
+        replace_active=True,
+    )
+    state = load_active_state(db_path=db_path, baseline_path=baseline_path)
+    assert list(state.transactions["Order ID"]) == ["CUSTOM-001"]
+
+    # Reset to baseline
+    rebuilt, prepared, final_id = reset_active_to_baseline(db_path=db_path, baseline_path=baseline_path)
+    assert list(prepared["Order ID"]) == ["GOVERNED-001"]
+    refreshed = load_active_state(db_path=db_path, baseline_path=baseline_path)
+    assert list(refreshed.transactions["Order ID"]) == ["GOVERNED-001"]

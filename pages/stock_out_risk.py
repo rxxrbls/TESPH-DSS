@@ -32,7 +32,7 @@ DISPLAY_COLUMNS = [
     "Current Stock",
     "Forecast Demand",
     "Movement",
-    "Sales Perf.",
+    "Sales Velocity (units/day)",
     "Stock-Out Risk",
     "Priority",
 ]
@@ -294,7 +294,7 @@ def _display_table(base: pd.DataFrame) -> pd.DataFrame:
             "Current Stock": base.get("Current Stock", pd.Series(dtype="float")),
             "Forecast Demand": base.get("Forecast Demand", pd.Series(dtype="float")),
             "Movement": base.get("Movement Classification", pd.Series(dtype="object")),
-            "Sales Perf.": base.get("Sales Velocity", pd.Series(dtype="float")),
+            "Sales Velocity (units/day)": base.get("Sales Velocity", pd.Series(dtype="float")),
             "Stock-Out Risk": base.get("Stock-Out Risk", pd.Series(dtype="object")),
             "Priority": base.get("Priority Level", pd.Series(dtype="object")),
         }
@@ -568,7 +568,7 @@ st.dataframe(
     column_config={
         "Current Stock": st.column_config.NumberColumn("Current Stock", format="%.0f"),
         "Forecast Demand": st.column_config.NumberColumn("Forecast Demand", format="%.0f"),
-        "Sales Perf.": st.column_config.NumberColumn("Sales Perf.", format="%.2f"),
+        "Sales Velocity (units/day)": st.column_config.NumberColumn("Sales Velocity (units/day)", format="%.2f"),
     },
 )
 
