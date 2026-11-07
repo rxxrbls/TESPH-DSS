@@ -255,3 +255,33 @@ def test_reset_active_to_baseline_restores_governed_data(tmp_path):
     assert list(prepared["Order ID"]) == ["GOVERNED-001"]
     refreshed = load_active_state(db_path=db_path, baseline_path=baseline_path)
     assert list(refreshed.transactions["Order ID"]) == ["GOVERNED-001"]
+
+
+def test_csv_upload_and_prepared_export_loads_dataset_cleanly(tmp_path):
+    """Uploaded CSV data produces a valid prepared dataset exportable to CSV."""
+    db_path = tmp_path / "runtime.db"
+    baseline_path = tmp_path / "prepared_transactions.csv"
+    _write_baseline(baseline_path, order_id="BASE-001")
+
+    csv_data = _upload_bytes("CSV-UPLOAD-101", order_date="2026-02-10 14:30:00", quantity=5)
+    result = run_etl_from_upload(
+        csv_data, "shopee_orders.csv",
+        db_path=db_path, baseline_path=baseline_path,
+    )
+    assert result.success is True
+    assert result.prepared_transactions is not None
+
+    # Verify CSV export round-trip
+    csv_bytes = result.prepared_transactions.to_csv(index=False).encode("utf-8-sig")
+    exported_df = pd.read_csv(pd.io.common.BytesIO(csv_bytes), encoding="utf-8-sig")
+    assert len(exported_df) == 2
+    assert "CSV-UPLOAD-101" in set(exported_df["Order ID"])
+    assert "BASE-001" in set(exported_df["Order ID"])
+
+    # Verify each star schema table exports to valid CSV
+    for table_name, table_df in result.star_schema.items():
+        star_csv = table_df.to_csv(index=False).encode("utf-8-sig")
+        reloaded = pd.read_csv(pd.io.common.BytesIO(star_csv), encoding="utf-8-sig")
+        assert len(reloaded) == len(table_df)
+        assert list(reloaded.columns) == list(table_df.columns)
+

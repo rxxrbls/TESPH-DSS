@@ -32,7 +32,6 @@ from utils.components import (
     primary_button,
     persistence_error_state,
     render_page_shell,
-    schema_placeholder,
     success_state,
     validation_error_state,
 )
@@ -317,17 +316,6 @@ def _render_validation_results(report) -> None:
             for warning in report.warnings:
                 info_message(warning)
 
-    # Technical schema details
-    if report.schema_validations:
-        with st.expander(
-            "Schema validation details",
-            expanded=False,
-        ):
-            for table_name, is_valid in report.schema_validations.items():
-                st.markdown(
-                    f"- `{table_name}`: "
-                    f"{'Valid' if is_valid else 'Schema mismatch'}"
-                )
 
 def _success_metrics() -> tuple[str, ...]:
     prepared = get_prepared_transactions()
@@ -358,78 +346,57 @@ process_requested = False
 upload_bytes: bytes | None = None
 upload_name: str | None = None
 
-upload_column, schema_column = st.columns((1.2, 1), gap="small")
-with upload_column:
-    st.markdown('<span class="upload-schema-row-marker" aria-hidden="true"></span>', unsafe_allow_html=True)
-    with st.container(border=True):
-        st.markdown('<span class="upload-card-marker" aria-hidden="true"></span>', unsafe_allow_html=True)
-        card_header(
-            "Upload transaction data",
-            "Shopee Seller Centre CSV or XLSX export(s)",
-            class_name="upload-card-header",
-        )
-        st.markdown(
-            '<div class="upload-zone"><div style="color:#8A8379;font-size:1.45rem">Upload</div>'
-            '<p class="upload-zone-title">Drop Shopee export(s), or choose files</p>'
-            '<p class="upload-zone-copy">Upload one or multiple monthly files. Validated files are reconciled into active analytics.</p></div>',
-            unsafe_allow_html=True,
-        )
-        uploaded_files = st.file_uploader(
-            "Choose CSV or XLSX file(s)",
-            type=["csv", "xlsx"],
-            accept_multiple_files=True,
-            label_visibility="collapsed",
-            help="Select one or more Shopee Seller Centre transaction exports. Multiple files will be merged seamlessly.",
-        )
-        if uploaded_files:
-            file_names = [f.name for f in uploaded_files]
-            register_selected_upload(", ".join(file_names) if len(file_names) <= 2 else f"{len(file_names)} files selected")
-            for f in uploaded_files:
-                if f.size > 100 * 1024 * 1024:
-                    st.warning(f"'{f.name}' exceeds 100 MB. Processing is in memory and may take longer than usual.")
-        else:
-            register_selected_upload(None)
+with st.container(border=True):
+    card_header(
+        "Upload transaction data",
+        "Shopee Seller Centre CSV or XLSX export(s)",
+        class_name="upload-card-header",
+    )
+    st.markdown(
+        '<div class="upload-zone"><div style="color:#8A8379;font-size:1.45rem">Upload</div>'
+        '<p class="upload-zone-title">Drop Shopee export(s), or choose files</p>'
+        '<p class="upload-zone-copy">Upload one or multiple monthly files. Validated files are reconciled into active analytics.</p></div>',
+        unsafe_allow_html=True,
+    )
+    uploaded_files = st.file_uploader(
+        "Choose CSV or XLSX file(s)",
+        type=["csv", "xlsx"],
+        accept_multiple_files=True,
+        label_visibility="collapsed",
+        help="Select one or more Shopee Seller Centre transaction exports. Multiple files will be merged seamlessly.",
+    )
+    if uploaded_files:
+        file_names = [f.name for f in uploaded_files]
+        register_selected_upload(", ".join(file_names) if len(file_names) <= 2 else f"{len(file_names)} files selected")
+        for f in uploaded_files:
+            if f.size > 100 * 1024 * 1024:
+                st.warning(f"'{f.name}' exceeds 100 MB. Processing is in memory and may take longer than usual.")
+    else:
+        register_selected_upload(None)
 
-        ingestion_mode = st.radio(
-            "Upload mode",
-            options=["Append to active data", "Replace active dataset"],
-            horizontal=True,
-            help="Append adds new rows to the current dataset without duplicating; Replace clears prior transactions and loads only the uploaded files.",
-        )
-        replace_active_mode = ingestion_mode == "Replace active dataset"
+    ingestion_mode = st.radio(
+        "Upload mode",
+        options=["Append to active data", "Replace active dataset"],
+        horizontal=True,
+        help="Append adds new rows to the current dataset without duplicating; Replace clears prior transactions and loads only the uploaded files.",
+    )
+    replace_active_mode = ingestion_mode == "Replace active dataset"
 
-        if primary_button("Process dataset", key="process_dataset", disabled=not uploaded_files):
-            process_requested = True
-            upload_payload = [(f.getvalue(), f.name) for f in uploaded_files]
+    if primary_button("Process dataset", key="process_dataset", disabled=not uploaded_files):
+        process_requested = True
+        upload_payload = [(f.getvalue(), f.name) for f in uploaded_files]
 
-    with st.expander("Data Management / Reset to Baseline", expanded=False):
-        st.caption("Restore the original governed baseline dataset (226,203 transactions). This will clear any uploaded transactions.")
-        if st.button("Reset to Baseline Data", key="reset_to_baseline_btn"):
-            with st.spinner("Restoring baseline dataset..."):
-                from runtime_data_store import reset_active_to_baseline
-                rebuilt, prepared, final_id = reset_active_to_baseline()
-                clear_stock_dependent_results()
-                set_etl_results(rebuilt, prepared, None, dataset_id=final_id)
-                set_data_status(DataStatus.DATA_READY)
-                st.success("Baseline dataset restored successfully (226,203 transactions).")
-                st.rerun()
-
-with schema_column:
-    with st.container(border=True):
-        card_header("Detected schema", "Standard Shopee format")
-        prepared_tx = get_prepared_transactions()
-        star = get_star_schema()
-        if prepared_tx is not None and star:
-            st.success("Standard Shopee Schema Verified (37 fields)")
-            st.caption(
-                f"Active Star Schema: fact_sales ({len(star.get('fact_sales', [])):,} rows), "
-                f"dim_product ({len(star.get('dim_product', [])):,} products), "
-                f"dim_date, dim_order, dim_shipping, dim_payment."
-            )
-        else:
-            st.info("Schema will be verified automatically upon dataset processing.")
-        with st.expander("Detected schema field dictionary", expanded=False):
-            schema_placeholder(prepared_tx, star)
+with st.expander("Data Management / Reset to Baseline", expanded=False):
+    st.caption("Restore the original governed baseline dataset (226,203 transactions). This will clear any uploaded transactions.")
+    if st.button("Reset to Baseline Data", key="reset_to_baseline_btn"):
+        with st.spinner("Restoring baseline dataset..."):
+            from runtime_data_store import reset_active_to_baseline
+            rebuilt, prepared, final_id = reset_active_to_baseline()
+            clear_stock_dependent_results()
+            set_etl_results(rebuilt, prepared, None, dataset_id=final_id)
+            set_data_status(DataStatus.DATA_READY)
+            st.success("Baseline dataset restored successfully (226,203 transactions).")
+            st.rerun()
 
 etl_pipeline_slot = st.empty()
 with etl_pipeline_slot.container():
@@ -513,10 +480,37 @@ if star_schema:
         "Your transaction data is ready for analysis and is now available to the system's analytical modules.",
         _success_metrics(),
     )
-    col_nav, _ = st.columns([1.6, 2])
+    col_nav, col_csv, _ = st.columns([1.5, 1.5, 1])
     with col_nav:
         if st.button("Proceed to Dashboard & Analytics →", type="primary", use_container_width=True, key="proceed_to_dashboard"):
             st.switch_page("pages/dashboard.py")
+    with col_csv:
+        prepared_data = get_prepared_transactions()
+        if prepared_data is not None and not prepared_data.empty:
+            st.download_button(
+                "Download Processed Dataset (.csv)",
+                data=prepared_data.to_csv(index=False).encode("utf-8-sig"),
+                file_name="prepared_transactions.csv",
+                mime="text/csv",
+                use_container_width=True,
+                key="download_prepared_csv_btn",
+            )
+    with st.expander("Export Star Schema Tables (.csv)", expanded=False):
+        st.caption("Download individual materialized dimensional tables as CSV files.")
+        star_cols = st.columns(3)
+        table_names = ["fact_sales", "dim_product", "dim_date", "dim_order", "dim_shipping", "dim_payment"]
+        for idx, t_name in enumerate(table_names):
+            if t_name in star_schema:
+                t_df = star_schema[t_name]
+                with star_cols[idx % 3]:
+                    st.download_button(
+                        f"Download {t_name}.csv ({len(t_df):,} rows)",
+                        data=t_df.to_csv(index=False).encode("utf-8-sig"),
+                        file_name=f"{t_name}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key=f"dl_star_{t_name}",
+                    )
 
 if get_data_status() is DataStatus.DATA_READY:
     st.divider()
