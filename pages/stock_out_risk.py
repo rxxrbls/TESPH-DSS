@@ -381,7 +381,7 @@ def _render_distribution(counts: pd.Series) -> None:
             "axis": {"gridWidth": 1},
         },
     }
-    st.vega_lite_chart(data, chart, use_container_width=True)
+    st.vega_lite_chart(data, chart, width="stretch")
 
 
 def _risk_filter() -> str:
@@ -395,7 +395,7 @@ def _risk_filter() -> str:
                     label,
                     key=f"risk_filter_{label.lower()}",
                     type="primary" if current == label else "secondary",
-                    use_container_width=True,
+                    width="stretch",
                 ):
                     st.session_state[RISK_FILTER_KEY] = label
                     st.rerun()
@@ -483,7 +483,7 @@ def _render_stock_vs_demand(row: pd.Series) -> None:
 
     left, right = st.columns((7, 3), gap="medium", vertical_alignment="top")
     with left:
-        st.vega_lite_chart(chart_data, chart, use_container_width=True)
+        st.vega_lite_chart(chart_data, chart, width="stretch")
     with right:
         _render_kpi("Current Stock", _number(stock), "")
         _render_kpi(
@@ -564,7 +564,7 @@ display = _display_table(filtered)
 st.dataframe(
     display,
     hide_index=True,
-    use_container_width=True,
+    width="stretch",
     column_config={
         "Current Stock": st.column_config.NumberColumn("Current Stock", format="%.0f"),
         "Forecast Demand": st.column_config.NumberColumn("Forecast Demand", format="%.0f"),

@@ -194,7 +194,7 @@ def _read_runtime_database(db_path: Path) -> RuntimeState | None:
             return None
         required = {"prepared_transactions", "ingestion_batches", "runtime_metadata"}
         if not required.issubset(tables):
-            raise RuntimeError("Runtime database is missing active transaction tables")
+            return None
         # Chunk fetching avoids SQLite retaining a Python tuple for every row
         # while pandas also materializes the full transaction frame.
         transactions = _restore_prepared_dtypes(

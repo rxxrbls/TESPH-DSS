@@ -312,3 +312,16 @@ def test_crosswalk_does_not_overwrite_existing_columns(inventory, historical):
     inventory["product_key"] = "existing-value"
     with pytest.raises(ValueError, match="reserved crosswalk columns"):
         build_inventory_crosswalk(inventory, historical)
+
+
+def test_workbook_sheet_fallback_when_default_sheet1_missing(tmp_path, inventory):
+    # Tests that when a client uploads a workbook where the worksheet is named
+    # e.g. "Mass Update" rather than "Sheet1", the default configuration
+    # automatically detects the inventory worksheet without raising ValueError.
+    config = write_inventory(tmp_path, inventory, header_row=3, data_start_row=7, sheet_name="Mass Update")
+    # InventoryConfig defaults to sheet_name="Sheet1"
+    default_config = InventoryConfig(source_path=config.source_path)
+    result = load_current_inventory(default_config)
+    assert len(result) == 2
+    assert result.attrs["sheet_name"] == "Mass Update"
+

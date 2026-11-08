@@ -265,7 +265,7 @@ with nav_col:
             st.button(
                 f"{index}. {topic}",
                 key=f"guide_topic_{index}",
-                use_container_width=True,
+                width="stretch",
                 on_click=_select_help_topic,
                 args=(topic,),
             )

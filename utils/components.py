@@ -829,7 +829,7 @@ def render_sidebar() -> None:
             elif group_index:
                 st.markdown('<span class="tesph-rail-group-start" aria-hidden="true"></span>', unsafe_allow_html=True)
             for target, label, icon in links:
-                st.page_link(target, label=label, icon=icon, use_container_width=not collapsed)
+                st.page_link(target, label=label, icon=icon, width="stretch" if not collapsed else "content")
         if collapsed:
             st.button("> |", key="tesph_sidebar_toggle_collapsed", help="Expand sidebar", on_click=_toggle_sidebar_collapsed)
         else:
@@ -860,14 +860,14 @@ def render_login_screen() -> None:
                 two_factor_code = st.text_input("Authentication Code", max_chars=6, placeholder="000000")
                 verify_col, cancel_col = st.columns((1, 1), gap="small")
                 with verify_col:
-                    if st.button("Verify", type="primary", use_container_width=True):
+                    if st.button("Verify", type="primary", width="stretch"):
                         if verify_user_two_factor(str(pending_2fa_user), two_factor_code):
                             st.session_state.pop("pending_2fa_username", None)
                             start_authenticated_session(str(pending_2fa_user))
                             st.rerun()
                         st.error("Invalid authentication code.")
                 with cancel_col:
-                    if st.button("Cancel", use_container_width=True):
+                    if st.button("Cancel", width="stretch"):
                         st.session_state.pop("pending_2fa_username", None)
                         st.rerun()
                 return
@@ -880,7 +880,7 @@ def render_login_screen() -> None:
                     unsafe_allow_html=True,
                 )
                 remember_me = st.checkbox("Remember Me")
-                submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
+                submitted = st.form_submit_button("Log in", type="primary", width="stretch")
             if submitted:
                 if not is_authentication_configured():
                     st.error("Local authorized-user access is not configured. Add the local auth configuration and restart the app.")
@@ -918,17 +918,21 @@ def _session_timeout_reload_timer() -> None:
     timeout_seconds = get_session_timeout_minutes() * 60
     remaining_seconds = float(last_activity) + timeout_seconds - time.time()
     delay_ms = max(1_000, int(remaining_seconds * 1_000) + 1_000)
-    st_components.html(
-        f"""
-        <script>
-        window.setTimeout(() => {{
-            window.parent.location.reload();
-        }}, {delay_ms});
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
+    script = f"""
+    <script>
+    window.setTimeout(() => {{
+        window.parent.location.reload();
+    }}, {delay_ms});
+    </script>
+    """
+    if hasattr(st, "html"):
+        st.html(script, unsafe_allow_javascript=True)
+    else:
+        st_components.html(
+            script,
+            height=0,
+            width=0,
+        )
 
 
 def render_page_shell(title: str, breadcrumb: str) -> None:
@@ -1014,12 +1018,12 @@ def render_page_shell(title: str, breadcrumb: str) -> None:
             '</div>',
             unsafe_allow_html=True,
         )
-        if st.button("Edit Profile", key="profile_action", use_container_width=True):
+        if st.button("Edit Profile", key="profile_action", width="stretch"):
             st.session_state["show_profile_menu"] = False
             st.session_state["show_notifications_panel"] = False
             st.session_state["open_profile_from_topbar"] = True
             st.switch_page("pages/settings.py")
-        if st.button("Log Out", key="logout_action", use_container_width=True):
+        if st.button("Log Out", key="logout_action", width="stretch"):
             st.session_state["show_profile_menu"] = False
             st.session_state["show_notifications_panel"] = False
             _logout_dialog()
@@ -1145,10 +1149,10 @@ def _logout_dialog() -> None:
     )
     cancel_col, logout_col = st.columns(2)
     with cancel_col:
-        if st.button("Cancel", key="cancel_logout", use_container_width=True):
+        if st.button("Cancel", key="cancel_logout", width="stretch"):
             st.rerun()
     with logout_col:
-        if st.button("Log Out", key="confirm_logout", type="primary", use_container_width=True):
+        if st.button("Log Out", key="confirm_logout", type="primary", width="stretch"):
             logout()
             st.rerun()
 
@@ -1180,11 +1184,11 @@ def kpi_card(label: str, value: str | None = None, accent: bool = False) -> None
 
 
 def primary_button(label: str, *, key: str | None = None, disabled: bool = False) -> bool:
-    return st.button(label, key=key, type="primary", disabled=disabled, use_container_width=True)
+    return st.button(label, key=key, type="primary", disabled=disabled, width="stretch")
 
 
 def secondary_button(label: str, *, key: str | None = None, disabled: bool = False) -> bool:
-    return st.button(label, key=key, type="secondary", disabled=disabled, use_container_width=True)
+    return st.button(label, key=key, type="secondary", disabled=disabled, width="stretch")
 
 
 def badge(label: str, tone: str = "neutral") -> str:
@@ -1260,7 +1264,7 @@ def schema_placeholder(prepared_transactions: Any | None = None, star_schema: di
     )
     st.dataframe(
         prepared_rows,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         height=298,
     )
@@ -1290,7 +1294,7 @@ def etl_stepper(message: str | None = None) -> None:
 
 def data_table_container(data: Any, column_order: Sequence[str] | None = None) -> None:
     with st.container(border=True):
-        st.dataframe(data, column_order=column_order, use_container_width=True, hide_index=True)
+        st.dataframe(data, column_order=column_order, width="stretch", hide_index=True)
 
 
 def info_message(message: str) -> None:

@@ -482,7 +482,7 @@ if star_schema:
     )
     col_nav, col_csv, _ = st.columns([1.5, 1.5, 1])
     with col_nav:
-        if st.button("Proceed to Dashboard & Analytics →", type="primary", use_container_width=True, key="proceed_to_dashboard"):
+        if st.button("Proceed to Dashboard & Analytics →", type="primary", width="stretch", key="proceed_to_dashboard"):
             st.switch_page("pages/dashboard.py")
     with col_csv:
         prepared_data = get_prepared_transactions()
@@ -492,7 +492,7 @@ if star_schema:
                 data=prepared_data.to_csv(index=False).encode("utf-8-sig"),
                 file_name="prepared_transactions.csv",
                 mime="text/csv",
-                use_container_width=True,
+                width="stretch",
                 key="download_prepared_csv_btn",
             )
     with st.expander("Export Star Schema Tables (.csv)", expanded=False):
@@ -508,7 +508,7 @@ if star_schema:
                         data=t_df.to_csv(index=False).encode("utf-8-sig"),
                         file_name=f"{t_name}.csv",
                         mime="text/csv",
-                        use_container_width=True,
+                        width="stretch",
                         key=f"dl_star_{t_name}",
                     )
 
@@ -635,23 +635,49 @@ if get_data_status() is DataStatus.DATA_READY:
                             transactions = get_prepared_transactions()
                             if transactions is None:
                                 raise ValueError("Active transaction history is unavailable. Process a transaction export before validating current stock.")
+                            effective_as_of = (
+                                pd.Timestamp(stock_as_of).normalize()
+                                if stock_date_confirmed
+                                else pd.Timestamp.today().normalize()
+                            )
                             mapping, inventory_audit = build_sku_mapping_from_stock_upload(
                                 transactions,
                                 crosswalk,
                                 stock_as_of=stock_as_of,
-                                as_of=pd.Timestamp.today().normalize(),
+                                as_of=effective_as_of,
                                 max_stock_age_days=int(threshold_days),
                             )
                             forecasts = run_forecasting_pipeline(transactions, mapping=mapping)
                             forecasts["inventory_review"] = inventory_audit
                             forecasts["sku_mapping"] = mapping
                             set_forecast_results(forecasts)
+
+                            forecast_output = forecasts.get("forecast_output")
+                            if forecast_output is None or forecast_output.empty:
+                                set_stock_upload_feedback(
+                                    "warning",
+                                    "Current-stock snapshot validated, but no matching active SKUs were eligible for demand forecasting. "
+                                    "Prescriptive recommendations could not be computed.",
+                                    ("Validated inventory and crosswalk are retained.",),
+                                )
+                                st.rerun()
+
+                            analytics = get_analytics_results()
+                            if not analytics and "Order Status" in transactions.columns:
+                                from analytics_pipeline import run_analytics_pipeline
+                                try:
+                                    analytics = run_analytics_pipeline(transactions)
+                                    set_analytics_results(analytics)
+                                except Exception:
+                                    pass
+                            analytics = analytics or {}
+
                             prescriptive = run_prescriptive_pipeline(
                                 transactions,
-                                get_analytics_results() or {},
+                                analytics,
                                 forecasts,
                                 crosswalk,
-                                as_of=pd.Timestamp.today().normalize(),
+                                as_of=effective_as_of,
                                 max_stock_age_days=int(threshold_days),
                             )
                             set_prescriptive_results(

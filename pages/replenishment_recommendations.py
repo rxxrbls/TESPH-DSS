@@ -165,7 +165,7 @@ else:
         st.dataframe(
             _display_recommendations(recommendations),
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 
         if "Supplier Lead Time Source" in recommendations and recommendations["Supplier Lead Time Source"].astype(str).str.startswith("Fallback ").any():

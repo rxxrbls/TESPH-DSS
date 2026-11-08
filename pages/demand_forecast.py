@@ -235,7 +235,7 @@ def _choose_method(methods: list[str]) -> str:
                 method,
                 key=f"forecast_method_{index}",
                 type="primary" if st.session_state[METHOD_KEY] == method else "secondary",
-                use_container_width=True,
+                width="stretch",
             ):
                 st.session_state[METHOD_KEY] = method
                 st.rerun()
@@ -360,7 +360,7 @@ def _render_forecast_chart(results: dict[str, object], category: str, method: st
         },
     }
 
-    st.vega_lite_chart(data, chart, use_container_width=True)
+    st.vega_lite_chart(data, chart, width="stretch")
     st.markdown(
         '<div class="forecast-chart-legend" aria-label="Chart legend">'
         '<span class="forecast-chart-legend-item">'
@@ -435,7 +435,7 @@ def _render_accuracy(results: dict[str, object], category: str) -> None:
         st.dataframe(
             table,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "MAE": st.column_config.NumberColumn("MAE", format="%.2f"),
                 "RMSE": st.column_config.NumberColumn("RMSE", format="%.2f"),

@@ -259,11 +259,11 @@ def _edit_profile_dialog(username: str) -> None:
     st.text_input("Role", value="Administrator", disabled=True)
     cancel_col, save_col = st.columns(2)
     with cancel_col:
-        if st.button("Cancel", key="cancel_profile_dialog", use_container_width=True):
+        if st.button("Cancel", key="cancel_profile_dialog", width="stretch"):
             _close_profile_dialog()
             st.rerun()
     with save_col:
-        if st.button("Save Changes", key="save_profile_dialog", type="primary", use_container_width=True):
+        if st.button("Save Changes", key="save_profile_dialog", type="primary", width="stretch"):
             result = save_account_profile(
                 current_username=username,
                 username=profile.username,
@@ -312,9 +312,9 @@ def _change_password_dialog(username: str) -> None:
     st.caption("Use at least 8 characters with uppercase, lowercase, and a number.")
     cancel_col, update_col = st.columns(2)
     with cancel_col:
-        st.button("Cancel", key="cancel_password_change", use_container_width=True, on_click=_close_password_dialog)
+        st.button("Cancel", key="cancel_password_change", width="stretch", on_click=_close_password_dialog)
     with update_col:
-        if st.button("Update Password", key="submit_password_change", type="primary", use_container_width=True):
+        if st.button("Update Password", key="submit_password_change", type="primary", width="stretch"):
             if new_password != confirm_password:
                 st.error("New password and confirmation do not match.")
                 return
@@ -337,9 +337,9 @@ def _two_factor_dialog(username: str) -> None:
     code = st.text_input("Authentication Code", max_chars=6, key="settings_totp_code", placeholder="000000")
     cancel_col, enable_col = st.columns(2)
     with cancel_col:
-        st.button("Cancel", key="cancel_two_factor_setup", use_container_width=True, on_click=_close_two_factor_dialog)
+        st.button("Cancel", key="cancel_two_factor_setup", width="stretch", on_click=_close_two_factor_dialog)
     with enable_col:
-        if st.button("Enable 2FA", key="submit_two_factor_setup", type="primary", use_container_width=True):
+        if st.button("Enable 2FA", key="submit_two_factor_setup", type="primary", width="stretch"):
             ok, message = enable_two_factor(username, str(secret), code)
             if ok:
                 _close_two_factor_dialog()
@@ -599,16 +599,16 @@ def _general_tab(profile) -> None:
                 unsafe_allow_html=True,
             )
             if two_factor_enabled:
-                if st.button("Disable 2FA", key="disable_two_factor", use_container_width=True):
+                if st.button("Disable 2FA", key="disable_two_factor", width="stretch"):
                     ok, message = disable_two_factor(profile.username)
                     st.session_state["two_factor_notice"] = ("success" if ok else "error", message)
                     st.rerun()
             else:
-                if st.button("Set Up Google Authenticator", key="open_two_factor_setup", use_container_width=True):
+                if st.button("Set Up Google Authenticator", key="open_two_factor_setup", width="stretch"):
                     st.session_state["show_two_factor_dialog"] = True
             st.markdown('<div class="settings-separator settings-password-separator"></div>', unsafe_allow_html=True)
             st.markdown('<div class="settings-action-row"><div class="settings-field-label">Change Password</div><div>', unsafe_allow_html=True)
-            if st.button("Change Password", key="open_change_password", use_container_width=True):
+            if st.button("Change Password", key="open_change_password", width="stretch"):
                 st.session_state["show_change_password_dialog"] = True
             st.markdown("</div></div>", unsafe_allow_html=True)
 
@@ -626,7 +626,7 @@ def _general_tab(profile) -> None:
                 """,
                 unsafe_allow_html=True,
             )
-            if st.button("Open Help & User Guide", key="go_to_help", type="primary", use_container_width=True):
+            if st.button("Open Help & User Guide", key="go_to_help", type="primary", width="stretch"):
                 st.switch_page("pages/help_user_guide.py")
 
 

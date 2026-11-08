@@ -228,7 +228,7 @@ def render_category_mix(trends: pd.DataFrame, *, height: int = 360, limit: int =
     st.vega_lite_chart(
         visible,
         chart,
-        use_container_width=True,
+        width="stretch",
     )
 
     return True
@@ -343,7 +343,7 @@ def render_sales_trend(trends: pd.DataFrame, *, height: int = 360) -> bool:
     st.vega_lite_chart(
         frame,
         chart,
-        use_container_width=True,
+        width="stretch",
     )
 
     return True
@@ -375,7 +375,7 @@ def render_product_performance(products: pd.DataFrame, *, height: int = 310, lim
         **_visualization_chart_base(height),
         "config": CHART_CONFIG,
     }
-    st.vega_lite_chart(frame, chart, use_container_width=True)
+    st.vega_lite_chart(frame, chart, width="stretch")
     return True
 
 
@@ -440,7 +440,7 @@ def render_risk_summary(risk: pd.DataFrame, *, height: int = 240) -> bool:
         "padding": {"left": 4, "right": 10, "top": 8, "bottom": 6},
         "config": CHART_CONFIG,
     }
-    st.vega_lite_chart(summary, chart, use_container_width=True)
+    st.vega_lite_chart(summary, chart, width="stretch")
     return True
 
 

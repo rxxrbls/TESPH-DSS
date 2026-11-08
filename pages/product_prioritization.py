@@ -231,7 +231,7 @@ def _render_details(frame: pd.DataFrame, criteria: tuple[str, ...], weights: dic
     st.dataframe(
         pd.DataFrame(detail_rows),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
 
@@ -343,7 +343,7 @@ with right:
         st.dataframe(
             ranking,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             column_config={
                 "Rank": st.column_config.NumberColumn("Rank", format="%d"),
                 "MCA Score": st.column_config.NumberColumn("MCA Score", format="%.3f"),
@@ -360,7 +360,7 @@ with right:
 
 with st.expander("Approved Normalized Matrix & Alternative Scenarios", expanded=False):
     st.markdown("#### Full Normalized MCA Matrix")
-    st.dataframe(mca, hide_index=True, use_container_width=True)
+    st.dataframe(mca, hide_index=True, width="stretch")
     st.download_button("Download MCA rankings", mca.to_csv(index=False), "mca_rankings.csv", "text/csv")
 
     st.markdown("#### Approved Criteria Weights")
@@ -372,7 +372,7 @@ with st.expander("Approved Normalized Matrix & Alternative Scenarios", expanded=
             ]
         ),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         column_config={"Weight": st.column_config.NumberColumn("Weight", format="%.3f")},
     )
 

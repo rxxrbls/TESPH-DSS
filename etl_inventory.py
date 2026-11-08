@@ -85,9 +85,25 @@ def load_current_inventory(config: InventoryConfig | None = None) -> pd.DataFram
     with config.source_path.open("rb") as source, _without_view_metadata(source) as stream:
         workbook = load_workbook(stream, read_only=True, data_only=False)
         try:
-            if config.sheet_name not in workbook.sheetnames:
-                raise ValueError(f"Inventory sheet not found: {config.sheet_name}")
-            sheet = workbook[config.sheet_name]
+            target_sheet_name = config.sheet_name
+            if target_sheet_name not in workbook.sheetnames:
+                # If the default "Sheet1" was requested but not found, attempt to detect
+                # the actual inventory sheet by checking headers or using the first sheet.
+                if config.sheet_name == "Sheet1" and workbook.sheetnames:
+                    candidate_sheet = None
+                    expected_cols = set(dict.fromkeys(INVENTORY_COLUMNS + config.expected_columns))
+                    for s_name in workbook.sheetnames:
+                        s = workbook[s_name]
+                        s.reset_dimensions()
+                        first_rows = s.iter_rows(min_row=config.header_row, max_row=config.header_row, values_only=True)
+                        candidate_header = list(next(first_rows, ()))
+                        if any(col in candidate_header for col in expected_cols):
+                            candidate_sheet = s_name
+                            break
+                    target_sheet_name = candidate_sheet or workbook.sheetnames[0]
+                else:
+                    raise ValueError(f"Inventory sheet not found: {config.sheet_name}")
+            sheet = workbook[target_sheet_name]
             # This client export declares dimension A1 despite having 1,986 rows.
             sheet.reset_dimensions()
             rows = sheet.iter_rows(min_row=config.header_row, values_only=True)
@@ -108,7 +124,7 @@ def load_current_inventory(config: InventoryConfig | None = None) -> pd.DataFram
     frame = pd.DataFrame(values, columns=header, dtype=object)
     frame.attrs["source_rows"] = tuple(source_rows)
     frame.attrs["source_path"] = str(config.source_path)
-    frame.attrs["sheet_name"] = config.sheet_name
+    frame.attrs["sheet_name"] = target_sheet_name
     return frame
 
 

@@ -271,6 +271,14 @@ def ensure_star_schema_for_active_dataset() -> dict | None:
         except Exception:
             star_schema = None
 
+    if star_schema is None and FINAL_OUTPUT_DIR.is_dir():
+        from star_schema_db import load_star_schema
+
+        try:
+            star_schema = load_star_schema(FINAL_OUTPUT_DIR)
+        except Exception:
+            star_schema = None
+
     if star_schema is not None:
         st.session_state["star_schema"] = star_schema
     return star_schema
