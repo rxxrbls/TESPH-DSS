@@ -17,8 +17,10 @@ from utils.state import (
     get_data_status,
     get_forecast_error_message,
     get_forecast_results,
+    get_inventory_crosswalk,
     get_mca_audit,
     get_mca_results,
+    get_prepared_transactions,
     get_prescriptive_error_message,
     get_recommendation_results,
     get_risk_results,
@@ -260,8 +262,114 @@ def _ranking_table(frame: pd.DataFrame) -> pd.DataFrame:
     return table[[column for column in columns if column in table.columns]]
 
 
+def _render_empty_state_diagnostics(
+    *,
+    has_txns: bool,
+    txns_count: int,
+    has_stock: bool,
+    stock_count: int,
+    has_forecast: bool,
+    forecast_count: int,
+    has_returns: bool,
+    error_message: str | None,
+) -> None:
+    st.markdown('<div style="height: 0.5rem;"></div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(
+            '<p class="priority-card-title">Product Prioritization: Data Readiness & Guidance</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p class="priority-card-copy">Product rankings require four interconnected inputs across the pipeline. Review the readiness checklist below to see what is connected and what action is needed.</p>',
+            unsafe_allow_html=True,
+        )
+
+        badge_ready = '<span style="background-color:#E6F4EA;color:#137333;font-weight:700;padding:2px 8px;border-radius:12px;font-size:0.75rem;">Ready</span>'
+        badge_missing = '<span style="background-color:#FCE8E6;color:#C5221F;font-weight:700;padding:2px 8px;border-radius:12px;font-size:0.75rem;">Action Needed</span>'
+
+        c1, c2 = st.columns(2, gap="small")
+        with c1:
+            st.markdown(
+                f"""
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px; margin-bottom:10px; background:#FAFAFA;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <strong style="font-size:0.88rem;">1. Historical Sales Transactions</strong>
+                        {badge_ready if has_txns else badge_missing}
+                    </div>
+                    <p style="margin:0; font-size:0.8rem; color:#6B7280;">
+                        {f'Connected with {txns_count:,} orders to evaluate Sales Velocity.' if has_txns else 'Missing: Upload monthly sales workbooks in Data Upload & ETL.'}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"""
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px; margin-bottom:10px; background:#FAFAFA;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <strong style="font-size:0.88rem;">2. Current Stock Snapshot & Crosswalk</strong>
+                        {badge_ready if has_stock else badge_missing}
+                    </div>
+                    <p style="margin:0; font-size:0.8rem; color:#6B7280;">
+                        {f'Connected with {stock_count:,} active SKU mappings.' if has_stock else 'Missing: Validate a Shopee stock export in Data Upload & ETL to map active SKUs.'}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown(
+                f"""
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px; margin-bottom:10px; background:#FAFAFA;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <strong style="font-size:0.88rem;">3. SKU Demand Forecasts</strong>
+                        {badge_ready if has_forecast else badge_missing}
+                    </div>
+                    <p style="margin:0; font-size:0.8rem; color:#6B7280;">
+                        {f'Prepared for {forecast_count:,} SKUs to evaluate Forecasted Demand.' if has_forecast else 'Pending: Requires valid sales history and mapped active SKUs.'}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"""
+                <div style="border:1px solid #E5E7EB; border-radius:8px; padding:12px; margin-bottom:10px; background:#FAFAFA;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                        <strong style="font-size:0.88rem;">4. Return/Refund Evidence (TA-Approved)</strong>
+                        {badge_ready if has_returns else badge_missing}
+                    </div>
+                    <p style="margin:0; font-size:0.8rem; color:#6B7280;">
+                        {f'Coverage confirmed and recorded return rates ready.' if has_returns else 'Action Needed: Upload cleaned return evidence or confirm coverage window under Data Upload & ETL.'}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(
+            """
+            <div style="background:#F9FAFB; border-left:4px solid #1D4ED8; border-radius:4px; padding:12px 16px; margin-top:8px;">
+                <strong style="color:#1E3A8A; font-size:0.88rem;">Next Steps for the Business Owner:</strong>
+                <ol style="margin:6px 0 0; padding-left:20px; font-size:0.82rem; color:#374151; line-height:1.6;">
+                    <li>Navigate to <strong>Data Upload & ETL</strong> from the navigation menu.</li>
+                    <li>Ensure your sales dataset and stock inventory snapshot are validated and connected.</li>
+                    <li>Expand the <strong>Return/refund data — three-criterion MCA</strong> section to upload or confirm return coverage.</li>
+                    <li>Return here to view prioritized product rankings with balanced equal-third weights.</li>
+                </ol>
+                <p style="margin:8px 0 0; font-size:0.78rem; color:#6B7280; font-style:italic;">
+                    Note: Under the TA-approved three-criterion model (Sales Velocity, Forecasted Demand, Recorded Return/Refund Quantity Rate), product costs (COGS) and supplier lead times are not required.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if error_message:
+            st.markdown(f'<p style="margin-top:10px; color:#B91C1C; font-size:0.82rem;">{html.escape(error_message)}</p>', unsafe_allow_html=True)
+
+
 guard_protected_page()
-ensure_derived_outputs_for_active_dataset()
+ensure_derived_outputs_for_active_dataset(include_prescriptive=True)
 render_page_shell("Product Prioritization", "Decide · Prescriptive")
 _inject_priority_styles()
 
@@ -301,10 +409,31 @@ with st.expander("Decision Audit Trail & Criteria Diagnostics", expanded=False):
 mca = _frame(get_mca_results())
 if mca.empty:
     error_message = get_prescriptive_error_message()
-    if error_message:
-        info_message(error_message)
-    else:
-        info_message("For the three-criterion assessment, connect sales, current stock and forecasts, then upload cleaned return/refund evidence with explicit coverage dates. Missing or unresolved criteria remain unavailable. Product costs and supplier lead times are not required for three-criterion MCA.")
+    txns = get_prepared_transactions()
+    has_txns = txns is not None and not getattr(txns, "empty", True)
+    txns_count = len(txns) if has_txns else 0
+
+    crosswalk = get_inventory_crosswalk()
+    has_stock = crosswalk is not None and not getattr(crosswalk, "empty", True)
+    stock_count = len(crosswalk) if has_stock else 0
+
+    has_forecast = forecast is not None and not getattr(forecast, "empty", True)
+    forecast_count = len(forecast["SKU"].unique()) if has_forecast and "SKU" in forecast.columns else 0
+
+    has_returns = st.session_state.get("three_criterion_active", False) or (
+        audit is not None and THREE_RATE in audit.columns and audit[THREE_RATE].notna().any()
+    )
+
+    _render_empty_state_diagnostics(
+        has_txns=has_txns,
+        txns_count=txns_count,
+        has_stock=has_stock,
+        stock_count=stock_count,
+        has_forecast=has_forecast,
+        forecast_count=forecast_count,
+        has_returns=has_returns,
+        error_message=error_message,
+    )
     st.stop()
 
 active_criteria, active_weights = _get_active_criteria_and_weights(mca, audit)

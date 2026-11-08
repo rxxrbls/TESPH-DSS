@@ -498,7 +498,7 @@ def _render_stock_vs_demand(row: pd.Series) -> None:
 
 
 guard_protected_page()
-ensure_derived_outputs_for_active_dataset(include_analytics=False)
+ensure_derived_outputs_for_active_dataset(include_analytics=False, include_prescriptive=True)
 render_page_shell("Stock-Out Risk", "Analyze · Predictive")
 _inject_stock_risk_styles()
 

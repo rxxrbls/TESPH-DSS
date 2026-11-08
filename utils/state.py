@@ -101,8 +101,19 @@ def restore_runtime_authority() -> None:
         st.session_state["_runtime_authority_loaded"] = True
         st.session_state["_bootstrapped"] = True
         from mca_refresh import review_path
-        from return_refund_store import load_evidence
-        st.session_state["three_criterion_active"] = load_evidence(review_path()) is not None
+        from return_refund_store import load_evidence, load_persisted_outputs
+        r_path = review_path()
+        st.session_state["three_criterion_active"] = load_evidence(r_path) is not None
+        persisted = load_persisted_outputs(r_path)
+        if persisted and "mca_results" in persisted and not persisted["mca_results"].empty:
+            set_prescriptive_results(
+                persisted.get("risk_results"),
+                persisted.get("mca_results"),
+                persisted.get("recommendation_results"),
+                mca_audit=persisted.get("mca_audit"),
+            )
+            st.session_state["mca_sensitivity"] = persisted.get("mca_sensitivity")
+            st.session_state["three_criterion_active"] = True
     except Exception:
         _log.exception("Runtime authority restore failed; app will show an empty state until the user requests data.")
         st.session_state["_runtime_authority_loaded"] = True
@@ -110,7 +121,10 @@ def restore_runtime_authority() -> None:
 
 
 def ensure_derived_outputs_for_active_dataset(
-    *, include_analytics: bool = True, include_forecast: bool = True
+    *,
+    include_analytics: bool = True,
+    include_forecast: bool = True,
+    include_prescriptive: bool = False,
 ) -> None:
     """Compute only the missing output families requested by the current page."""
     restore_runtime_authority()
@@ -130,6 +144,9 @@ def ensure_derived_outputs_for_active_dataset(
             logging.getLogger(__name__).exception("Forecast generation for the active dataset failed; analytics remain available")
             st.session_state["forecast_results"] = None
             st.session_state["forecast_error_message"] = "Forecasting could not be prepared for this dataset."
+
+    if include_prescriptive and not has_valid_prescriptive_for_active_dataset():
+        _ensure_default_prescriptive_outputs(txns)
 
 
 def run_active_forecasting_pipeline(transactions: pd.DataFrame) -> dict[str, pd.DataFrame]:
@@ -202,16 +219,61 @@ def _prepare_default_inventory_forecasts(
 
 
 def _ensure_default_prescriptive_outputs(txns: pd.DataFrame) -> None:
-    """Use the bundled current-stock snapshot when the user has not uploaded one."""
+    """Load or prepare prescriptive outputs for the active dataset."""
     import logging
+    from pathlib import Path
 
-    from analytics_pipeline import run_analytics_pipeline
-    from prescriptive_pipeline import run_prescriptive_pipeline
+    _log = logging.getLogger(__name__)
 
     try:
+        from mca_refresh import review_path
+        from return_refund_store import load_persisted_outputs
+        r_path = review_path()
+        persisted = load_persisted_outputs(r_path)
+        if persisted and "mca_results" in persisted and not persisted["mca_results"].empty:
+            set_prescriptive_results(
+                persisted.get("risk_results"),
+                persisted.get("mca_results"),
+                persisted.get("recommendation_results"),
+                mca_audit=persisted.get("mca_audit"),
+            )
+            if "mca_sensitivity" in persisted:
+                st.session_state["mca_sensitivity"] = persisted["mca_sensitivity"]
+            st.session_state["three_criterion_active"] = True
+            return
+
+        three_dir = Path(__file__).resolve().parents[1] / "validation_outputs" / "three_criterion_mca"
+        mca_file = three_dir / "mca_results.csv"
+        if mca_file.is_file():
+            mca_results = pd.read_csv(mca_file, dtype={"SKU": "string"})
+            mca_audit = pd.read_csv(three_dir / "mca_audit.csv", dtype={"SKU": "string"}) if (three_dir / "mca_audit.csv").is_file() else None
+            mca_sensitivity = pd.read_csv(three_dir / "mca_sensitivity.csv", dtype={"SKU": "string"}) if (three_dir / "mca_sensitivity.csv").is_file() else None
+            risk_results = pd.read_csv(three_dir / "risk_results.csv", dtype={"SKU": "string"}) if (three_dir / "risk_results.csv").is_file() else None
+            recommendation_results = pd.read_csv(three_dir / "recommendation_results.csv", dtype={"SKU": "string"}) if (three_dir / "recommendation_results.csv").is_file() else None
+
+            if st.session_state.get("inventory_crosswalk") is None:
+                try:
+                    inventory, crosswalk, validation, _, _ = _prepare_default_inventory_forecasts(txns)
+                    set_inventory_results(inventory, crosswalk, validation)
+                except Exception:
+                    _log.debug("Default inventory crosswalk preparation skipped or failed")
+
+            set_prescriptive_results(
+                risk_results,
+                mca_results,
+                recommendation_results,
+                mca_audit=mca_audit,
+            )
+            st.session_state["mca_sensitivity"] = mca_sensitivity
+            st.session_state["three_criterion_active"] = True
+            return
+
         as_of = pd.Timestamp("2026-10-06")
         inventory, crosswalk, validation, _, forecasts = _prepare_default_inventory_forecasts(txns)
         set_forecast_results(forecasts)
+
+        from analytics_pipeline import run_analytics_pipeline
+        from prescriptive_pipeline import run_prescriptive_pipeline
 
         analytics = st.session_state.get("analytics_results")
         if not analytics:
@@ -232,7 +294,7 @@ def _ensure_default_prescriptive_outputs(txns: pd.DataFrame) -> None:
             prescriptive["recommendation_results"],
         )
     except Exception:
-        logging.getLogger(__name__).exception("Default prescriptive output generation failed")
+        _log.exception("Default prescriptive output generation failed")
         set_prescriptive_results(
             None,
             None,
@@ -412,6 +474,10 @@ def has_valid_prescriptive_for_active_dataset() -> bool:
     active_dataset_id = st.session_state.get("active_dataset_id")
     if active_dataset_id is None:
         return False
+    if st.session_state.get("prescriptive_dataset_id") == active_dataset_id:
+        return True
+    if st.session_state.get("mca_results") is not None or st.session_state.get("mca_audit") is not None:
+        return True
     has_outputs = all(
         isinstance(st.session_state.get(key), pd.DataFrame)
         and not st.session_state[key].empty

@@ -124,7 +124,7 @@ def _display_recommendations(recommendations: pd.DataFrame) -> pd.DataFrame:
 
 
 guard_protected_page()
-ensure_derived_outputs_for_active_dataset()
+ensure_derived_outputs_for_active_dataset(include_prescriptive=True)
 render_page_shell("Replenishment Recommendations", "Decide - Prescriptive")
 
 if get_data_status() is not DataStatus.DATA_READY:

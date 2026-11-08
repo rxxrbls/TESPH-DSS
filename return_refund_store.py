@@ -107,3 +107,24 @@ def load_evidence(path):
         if policy is None:
             return None
         return pd.DataFrame(_read(connection, "snapshot", []), columns=None), policy
+
+
+def load_persisted_outputs(path: str | Path) -> dict[str, pd.DataFrame] | None:
+    """Load cached prescriptive and audit outputs from SQLite state table if present."""
+    if not Path(path).exists():
+        return None
+    with closing(sqlite3.connect(path)) as connection:
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE name='state'").fetchone():
+            return None
+        raw_outputs = _read(connection, "outputs", None)
+        if not raw_outputs or not isinstance(raw_outputs, dict):
+            return None
+        outputs: dict[str, pd.DataFrame] = {}
+        for name, json_str in raw_outputs.items():
+            if json_str:
+                try:
+                    outputs[name] = pd.read_json(io.StringIO(json_str), orient="table")
+                except Exception:
+                    pass
+        return outputs if outputs else None
+
