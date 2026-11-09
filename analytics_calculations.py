@@ -247,14 +247,35 @@ def assemble_star_schema_transactions(
     )
 
 
+_PREPARED_TX_CACHE: tuple[tuple[int, tuple[int, int], int], pd.DataFrame] | None = None
+
+
+def _tx_cache_key(transactions: pd.DataFrame) -> tuple[int, tuple[int, int], int] | None:
+    if len(transactions) < 1000:
+        return None
+    try:
+        cols = list(REQUIRED_SOURCE_COLUMNS)
+        if SERVICE_FEE_SOURCE_COLUMN in transactions.columns:
+            cols.append(SERVICE_FEE_SOURCE_COLUMN)
+        h = int(pd.util.hash_pandas_object(transactions[cols], index=True).to_numpy().sum())
+        return (id(transactions), transactions.shape, h)
+    except Exception:
+        return None
+
+
 def prepare_transactions(transactions: pd.DataFrame) -> pd.DataFrame:
     """Return the Member 1 handoff in a compact, analysis-friendly schema.
 
     Missing source SKU values remain missing. They are never replaced with a
     product key or another fabricated identifier.
     """
+    global _PREPARED_TX_CACHE
 
     _require_columns(transactions, REQUIRED_SOURCE_COLUMNS)
+    cache_key = _tx_cache_key(transactions)
+    if cache_key is not None and _PREPARED_TX_CACHE is not None and _PREPARED_TX_CACHE[0] == cache_key:
+        return _PREPARED_TX_CACHE[1].copy()
+
     prepared = pd.DataFrame(index=transactions.index)
     prepared["Order ID"] = _clean_text(transactions["Order ID"])
     prepared["Order Status"] = _clean_text(transactions["Order Status"])
@@ -319,7 +340,10 @@ def prepare_transactions(transactions: pd.DataFrame) -> pd.DataFrame:
     quantity_ratio = _safe_rate(prepared["Net Inventory Demand"], prepared["Gross Demand"])
     quantity_ratio = quantity_ratio.fillna(0.0).clip(lower=0.0, upper=1.0)
     prepared["Net Revenue After Returns"] = prepared["Gross Revenue"] * quantity_ratio
-    return prepared.reset_index(drop=True)
+    result = prepared.reset_index(drop=True)
+    if cache_key is not None:
+        _PREPARED_TX_CACHE = (cache_key, result.copy())
+    return result
 
 
 def calculate_sales_summary(transactions: pd.DataFrame) -> pd.DataFrame:

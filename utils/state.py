@@ -194,11 +194,12 @@ def _prepare_default_inventory_forecasts(
             "Current-stock workbook is required to prepare mapped SKU forecasts."
         )
 
-    stock_as_of = pd.Timestamp("2026-09-09")
-    as_of = pd.Timestamp("2026-10-06")
+    stock_as_of = pd.Timestamp("2026-09-09").date()
+    as_of = pd.Timestamp("2026-09-09")
     config = InventoryConfig(
         source_path=CURRENT_INVENTORY_SOURCE,
         stock_as_of=stock_as_of,
+        stock_definition_confirmed=True,
     )
     inventory = load_current_inventory(config)
     validation = validate_current_inventory(inventory, config)
@@ -226,61 +227,69 @@ def _ensure_default_prescriptive_outputs(txns: pd.DataFrame) -> None:
     _log = logging.getLogger(__name__)
 
     try:
-        from mca_refresh import review_path
+        from analytics_calculations import REQUIRED_SOURCE_COLUMNS
+        from mca_refresh import compute_connected_three_criterion_prescriptive, review_path
         from return_refund_store import load_persisted_outputs
-        r_path = review_path()
-        persisted = load_persisted_outputs(r_path)
-        if persisted and "mca_results" in persisted and not persisted["mca_results"].empty:
-            set_prescriptive_results(
-                persisted.get("risk_results"),
-                persisted.get("mca_results"),
-                persisted.get("recommendation_results"),
-                mca_audit=persisted.get("mca_audit"),
-            )
-            if "mca_sensitivity" in persisted:
-                st.session_state["mca_sensitivity"] = persisted["mca_sensitivity"]
-            st.session_state["three_criterion_active"] = True
-            return
 
-        three_dir = Path(__file__).resolve().parents[1] / "validation_outputs" / "three_criterion_mca"
-        mca_file = three_dir / "mca_results.csv"
-        if mca_file.is_file():
-            mca_results = pd.read_csv(mca_file, dtype={"SKU": "string"})
-            mca_audit = pd.read_csv(three_dir / "mca_audit.csv", dtype={"SKU": "string"}) if (three_dir / "mca_audit.csv").is_file() else None
-            mca_sensitivity = pd.read_csv(three_dir / "mca_sensitivity.csv", dtype={"SKU": "string"}) if (three_dir / "mca_sensitivity.csv").is_file() else None
-            risk_results = pd.read_csv(three_dir / "risk_results.csv", dtype={"SKU": "string"}) if (three_dir / "risk_results.csv").is_file() else None
-            recommendation_results = pd.read_csv(three_dir / "recommendation_results.csv", dtype={"SKU": "string"}) if (three_dir / "recommendation_results.csv").is_file() else None
+        is_custom_dataset = (
+            isinstance(txns, pd.DataFrame)
+            and set(REQUIRED_SOURCE_COLUMNS).issubset(txns.columns)
+            and 0 < len(txns) < 226000
+        )
 
-            if st.session_state.get("inventory_crosswalk") is None:
-                try:
-                    inventory, crosswalk, validation, _, _ = _prepare_default_inventory_forecasts(txns)
-                    set_inventory_results(inventory, crosswalk, validation)
-                except Exception:
-                    _log.debug("Default inventory crosswalk preparation skipped or failed")
+        if not is_custom_dataset:
+            r_path = review_path()
+            persisted = load_persisted_outputs(r_path)
+            if persisted and "mca_results" in persisted and not persisted["mca_results"].empty:
+                set_prescriptive_results(
+                    persisted.get("risk_results"),
+                    persisted.get("mca_results"),
+                    persisted.get("recommendation_results"),
+                    mca_audit=persisted.get("mca_audit"),
+                )
+                if "mca_sensitivity" in persisted:
+                    st.session_state["mca_sensitivity"] = persisted["mca_sensitivity"]
+                st.session_state["three_criterion_active"] = True
+                return
 
-            set_prescriptive_results(
-                risk_results,
-                mca_results,
-                recommendation_results,
-                mca_audit=mca_audit,
-            )
-            st.session_state["mca_sensitivity"] = mca_sensitivity
-            st.session_state["three_criterion_active"] = True
-            return
+            three_dir = Path(__file__).resolve().parents[1] / "validation_outputs" / "three_criterion_mca"
+            mca_file = three_dir / "mca_results.csv"
+            if mca_file.is_file():
+                mca_results = pd.read_csv(mca_file, dtype={"SKU": "string"})
+                mca_audit = pd.read_csv(three_dir / "mca_audit.csv", dtype={"SKU": "string"}) if (three_dir / "mca_audit.csv").is_file() else None
+                mca_sensitivity = pd.read_csv(three_dir / "mca_sensitivity.csv", dtype={"SKU": "string"}) if (three_dir / "mca_sensitivity.csv").is_file() else None
+                risk_results = pd.read_csv(three_dir / "risk_results.csv", dtype={"SKU": "string"}) if (three_dir / "risk_results.csv").is_file() else None
+                recommendation_results = pd.read_csv(three_dir / "recommendation_results.csv", dtype={"SKU": "string"}) if (three_dir / "recommendation_results.csv").is_file() else None
 
-        as_of = pd.Timestamp("2026-10-06")
+                if st.session_state.get("inventory_crosswalk") is None:
+                    try:
+                        inventory, crosswalk, validation, _, _ = _prepare_default_inventory_forecasts(txns)
+                        set_inventory_results(inventory, crosswalk, validation)
+                    except Exception:
+                        _log.debug("Default inventory crosswalk preparation skipped or failed")
+
+                set_prescriptive_results(
+                    risk_results,
+                    mca_results,
+                    recommendation_results,
+                    mca_audit=mca_audit,
+                )
+                st.session_state["mca_sensitivity"] = mca_sensitivity
+                st.session_state["three_criterion_active"] = True
+                return
+
+        as_of = pd.Timestamp("2026-09-09")
         inventory, crosswalk, validation, _, forecasts = _prepare_default_inventory_forecasts(txns)
         set_forecast_results(forecasts)
 
         from analytics_pipeline import run_analytics_pipeline
-        from prescriptive_pipeline import run_prescriptive_pipeline
 
         analytics = st.session_state.get("analytics_results")
         if not analytics:
             analytics = run_analytics_pipeline(txns)
             set_analytics_results(analytics)
 
-        prescriptive = run_prescriptive_pipeline(
+        prescriptive = compute_connected_three_criterion_prescriptive(
             txns,
             analytics,
             forecasts,
@@ -292,7 +301,10 @@ def _ensure_default_prescriptive_outputs(txns: pd.DataFrame) -> None:
             prescriptive["risk_results"],
             prescriptive["mca_results"],
             prescriptive["recommendation_results"],
+            mca_audit=prescriptive.get("mca_audit"),
         )
+        st.session_state["mca_sensitivity"] = prescriptive.get("mca_sensitivity")
+        st.session_state["three_criterion_active"] = True
     except Exception:
         _log.exception("Default prescriptive output generation failed")
         set_prescriptive_results(

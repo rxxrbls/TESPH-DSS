@@ -197,21 +197,63 @@ def backtest_sku(data: pd.DataFrame, config: ForecastConfig) -> pd.DataFrame:
     rows = []
     last_origin = len(data) - config.horizon
     first_origin = max(config.minimum_training_periods, last_origin - config.validation_periods + 1)
+    if first_origin > last_origin:
+        return pd.DataFrame(rows, columns=DETAIL_COLUMNS)
+
+    sku_val = data["SKU"].iloc[0]
+    prod_val = data["Product"].iloc[0]
+    cat_val = data["Category"].iloc[0]
+    demand_arr = pd.to_numeric(data["Demand"], errors="coerce").to_numpy(dtype=float)
+    time_series = pd.to_datetime(data["Time"], errors="coerce").reset_index(drop=True)
+    if time_series.isna().any() or not np.isfinite(demand_arr).all() or (demand_arr < 0).any():
+        # Fall back to _predict validation if malformed inputs are passed
+        for origin in range(first_origin, last_origin + 1):
+            train = data.iloc[:origin]
+            window, alpha, _ = tune_parameters(train, config)
+            actual = data.iloc[origin:origin + config.horizon]
+            for method in METHODS:
+                forecast = _predict(train, method, config, window, alpha, config.horizon)
+                if not forecast["Time"].reset_index(drop=True).equals(actual["Time"].reset_index(drop=True)):
+                    raise ValueError("Validation forecast dates must match the complete holdout calendar")
+                for step, ((_, target), (_, prediction)) in enumerate(zip(actual.iterrows(), forecast.iterrows()), 1):
+                    rows.append({"SKU": sku_val, "Product": prod_val,
+                                 "Category": cat_val, "Origin": train["Time"].iloc[-1],
+                                 "Time": target["Time"], "Step": step, "Method": method,
+                                 "Actual": target["Demand"], "Forecast": prediction["Forecast"],
+                                 "MA Window": window if method == "Moving Average" else np.nan,
+                                 "ES Alpha": alpha if method == "Exponential Smoothing" else np.nan})
+        return pd.DataFrame(rows, columns=DETAIL_COLUMNS)
+
+    time_list = data["Time"].tolist()
     for origin in range(first_origin, last_origin + 1):
         train = data.iloc[:origin]
         window, alpha, _ = tune_parameters(train, config)
-        actual = data.iloc[origin:origin + config.horizon]
+        origin_time = time_list[origin - 1]
+        expected_times = pd.period_range(
+            time_series.iloc[origin - 1].to_period(config.frequency) + 1,
+            periods=config.horizon,
+            freq=config.frequency,
+        ).to_timestamp()
+        actual_times = time_series.iloc[origin:origin + config.horizon].reset_index(drop=True)
+        if not pd.Series(expected_times).equals(actual_times):
+            raise ValueError("Validation forecast dates must match the complete holdout calendar")
+        actual_demands = demand_arr[origin:origin + config.horizon]
+        holdout_times = time_list[origin:origin + config.horizon]
+        train_vals = demand_arr[:origin]
         for method in METHODS:
-            forecast = _predict(train, method, config, window, alpha, config.horizon)
-            if not forecast["Time"].reset_index(drop=True).equals(actual["Time"].reset_index(drop=True)):
-                raise ValueError("Validation forecast dates must match the complete holdout calendar")
-            for step, ((_, target), (_, prediction)) in enumerate(zip(actual.iterrows(), forecast.iterrows()), 1):
-                rows.append({"SKU": data["SKU"].iloc[0], "Product": data["Product"].iloc[0],
-                             "Category": data["Category"].iloc[0], "Origin": train["Time"].iloc[-1],
-                             "Time": target["Time"], "Step": step, "Method": method,
-                             "Actual": target["Demand"], "Forecast": prediction["Forecast"],
-                             "MA Window": window if method == "Moving Average" else np.nan,
-                             "ES Alpha": alpha if method == "Exponential Smoothing" else np.nan})
+            preds = np.maximum(
+                forecast_values(train_vals, method, config.horizon, window=window, alpha=alpha),
+                0.0,
+            )
+            ma_w = window if method == "Moving Average" else np.nan
+            es_a = alpha if method == "Exponential Smoothing" else np.nan
+            for step in range(config.horizon):
+                rows.append({
+                    "SKU": sku_val, "Product": prod_val, "Category": cat_val,
+                    "Origin": origin_time, "Time": holdout_times[step], "Step": step + 1,
+                    "Method": method, "Actual": actual_demands[step], "Forecast": float(preds[step]),
+                    "MA Window": ma_w, "ES Alpha": es_a,
+                })
     return pd.DataFrame(rows, columns=DETAIL_COLUMNS)
 
 

@@ -225,12 +225,95 @@ def _stock_feedback_details(
         details.append(f"Validated stock rows: {valid_rows:,} of {len(checks):,}.")
     if crosswalk is not None:
         details.append(f"Safely mapped stock rows: {mapped_rows:,}; rows requiring mapping review: {review_rows:,}.")
+        if "match_status" in crosswalk:
+            unmatched_rows = int(crosswalk["match_status"].eq("unmatched").sum())
+            conflict_rows = int(crosswalk["match_status"].eq("review_required").sum())
+            sku_mapping = forecasts.get("sku_mapping") if isinstance(forecasts, dict) else None
+            active_sku_count = (
+                int(sku_mapping["active"].eq(True).sum())
+                if isinstance(sku_mapping, pd.DataFrame) and "active" in sku_mapping
+                else None
+            )
+            if unmatched_rows > 0 or conflict_rows > 0:
+                sku_note = f" ({active_sku_count:,} with unique Seller SKU for SKU forecasting)" if active_sku_count is not None else ""
+                details.append(
+                    f"Crosswalk breakdown: {mapped_rows:,} matched historical product(s){sku_note}, "
+                    f"{unmatched_rows:,} unmatched catalog item(s) with 0 orders in the active sales dataset, "
+                    f"and {conflict_rows:,} conflict row(s) (reused SKU / duplicate name pair)."
+                )
     if forecasts is not None and prescriptive is not None:
         details.append(
             f"Forecast: {forecast_skus:,} SKU(s); stock-out risk: {risk_rows:,} row(s); "
             f"MCA: {mca_rows:,} row(s); replenishment: {recommendation_rows:,} row(s).{mca_detail}"
         )
     return tuple(details)
+
+
+def _render_inventory_mapping_diagnostics() -> None:
+    """Render an expandable breakdown of inventory crosswalk and SKU eligibility."""
+    crosswalk = get_inventory_crosswalk()
+    if crosswalk is None or getattr(crosswalk, "empty", True) or "match_status" not in crosswalk.columns:
+        return
+    total_rows = len(crosswalk)
+    candidate_rows = int(crosswalk["match_status"].eq("candidate").sum())
+    unmatched_rows = int(crosswalk["match_status"].eq("unmatched").sum())
+    conflict_rows = int(crosswalk["match_status"].eq("review_required").sum())
+
+    forecasts = get_forecast_results() or {}
+    sku_mapping = forecasts.get("sku_mapping")
+    inv_review = forecasts.get("inventory_review")
+    eligibility = forecasts.get("eligibility")
+    active_skus = (
+        int(sku_mapping["active"].eq(True).sum())
+        if isinstance(sku_mapping, pd.DataFrame) and "active" in sku_mapping.columns
+        else 0
+    )
+    forecast_output = forecasts.get("forecast_output")
+    forecasted_skus = (
+        int(forecast_output["SKU"].nunique())
+        if isinstance(forecast_output, pd.DataFrame) and "SKU" in forecast_output.columns
+        else 0
+    )
+
+    with st.expander("Inventory Mapping & SKU Forecast Eligibility Breakdown", expanded=False):
+        st.caption(
+            "Detailed audit of how the uploaded stock snapshot maps to the active sales catalog "
+            "and why specific rows are admitted or excluded from SKU-level forecasting."
+        )
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Mapped Products", f"{candidate_rows:,} / {total_rows:,}")
+        c2.metric("Unmatched (No Sales)", f"{unmatched_rows:,}")
+        c3.metric("Mapping Conflicts", f"{conflict_rows:,}")
+        c4.metric("Active / Forecasted SKUs", f"{active_skus:,} / {forecasted_skus:,}")
+
+        star_schema = get_star_schema() or {}
+        dim_prod = star_schema.get("dim_product")
+        if isinstance(dim_prod, pd.DataFrame) and 0 < len(dim_prod) < 2000:
+            st.info(
+                f"Active dataset scope note: The active transaction dataset contains {len(dim_prod):,} historical products "
+                f"(compared to 2,056 products in the full 6-year baseline). Stock rows for products that had no orders "
+                f"in this uploaded subset are classified as 'unmatched' ({unmatched_rows:,} rows)."
+            )
+
+        lines = [
+            f"- **Safely Mapped Product Rows (`candidate`)**: **{candidate_rows:,}** row(s) uniquely matched a historical product in `dim_product` without conflicts.",
+            f"- **Unmatched Catalog Rows (`unmatched`)**: **{unmatched_rows:,}** row(s) exist in the Shopee stock sheet but have zero historical orders in the active sales dataset.",
+            f"- **Conflict Rows Requiring Review (`review_required`)**: **{conflict_rows:,}** row(s) have ambiguous mappings (e.g. duplicate product/variation names, reused Seller SKUs across variations, or multiple historical candidates).",
+        ]
+        if isinstance(inv_review, pd.DataFrame) and "Reason" in inv_review.columns:
+            missing_sku_in_matched = int(
+                (crosswalk["match_status"].eq("candidate") & inv_review["Reason"].eq("Missing source SKU")).sum()
+            ) if len(inv_review) == len(crosswalk) else int(inv_review["Reason"].eq("Missing source SKU").sum())
+            lines.append(
+                f"- **Active Seller SKU Requirement**: Out of {candidate_rows:,} mapped product rows, **{active_skus:,}** row(s) have a unique, non-blank Seller `SKU` in the stock export (`{missing_sku_in_matched:,}` matched rows have a blank `SKU` cell in the Shopee stock file and cannot be assigned fabricated SKUs under TA governance rules)."
+            )
+        if isinstance(eligibility, pd.DataFrame) and "Reason" in eligibility.columns:
+            short_hist = int(eligibility["Reason"].eq("Insufficient history for training and holdout horizon").sum())
+            if short_hist > 0:
+                lines.append(
+                    f"- **Forecast Horizon History Requirement (>= 44 days)**: Out of {active_skus:,} active mapped SKUs, **{forecasted_skus:,}** SKU(s) met the minimum 37-day training + 7-day holdout span, while **{short_hist:,}** SKU(s) were excluded due to insufficient historical span."
+                )
+        st.markdown("\n".join(lines))
 
 
 def _render_stock_feedback() -> None:
@@ -539,6 +622,7 @@ if get_data_status() is DataStatus.DATA_READY:
             unsafe_allow_html=True,
         )
         _render_stock_feedback()
+        _render_inventory_mapping_diagnostics()
 
         stock_file = st.file_uploader(
             "Upload current stock inventory",
@@ -680,6 +764,22 @@ if get_data_status() is DataStatus.DATA_READY:
                                 as_of=effective_as_of,
                                 max_stock_age_days=int(threshold_days),
                             )
+                            if (
+                                prescriptive.get("mca_results") is None
+                                or getattr(prescriptive.get("mca_results"), "empty", True)
+                            ):
+                                from mca_refresh import compute_connected_three_criterion_prescriptive
+
+                                prescriptive = compute_connected_three_criterion_prescriptive(
+                                    transactions,
+                                    analytics,
+                                    forecasts,
+                                    crosswalk,
+                                    base_prescriptive=prescriptive,
+                                    as_of=effective_as_of,
+                                    max_stock_age_days=int(threshold_days),
+                                )
+                                st.session_state["three_criterion_active"] = True
                             set_prescriptive_results(
                                 prescriptive["risk_results"],
                                 prescriptive["mca_results"],

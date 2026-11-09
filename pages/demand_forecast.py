@@ -525,6 +525,14 @@ else:
         '<p class="section-description">Review historical demand and forecasted demand for eligible product categories.</p>',
         unsafe_allow_html=True,
     )
+    best_methods_check = forecast_results.get("best_methods") if isinstance(forecast_results, dict) else None
+    if isinstance(best_methods_check, pd.DataFrame) and not best_methods_check.empty:
+        info_message(
+            "Category-level monthly chart selection requires at least 24 complete months of historical transaction data. "
+            f"However, SKU-level daily demand forecasts are active and validated for {len(best_methods_check):,} eligible SKUs below."
+        )
+    else:
+        info_message("No eligible category or SKU forecast series are available for the active dataset.")
 
 # Executive Accuracy Summary
 best_methods = forecast_results.get("best_methods") if isinstance(forecast_results, dict) else None
