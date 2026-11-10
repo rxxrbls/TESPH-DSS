@@ -14,6 +14,7 @@ from utils.components import (
     render_page_shell,
     section_header,
 )
+from utils.risk_filters import calculate_days_of_supply, filter_risk_records
 from utils.state import (
     DataStatus,
     ensure_derived_outputs_for_active_dataset,
@@ -27,10 +28,12 @@ from utils.state import (
 
 RISK_FILTER_KEY = "stock_out_risk_filter"
 PRODUCT_SELECT_KEY = "stock_out_risk_product"
+PRODUCT_SEARCH_KEY = "stock_out_risk_search"
 DISPLAY_COLUMNS = [
     "Product",
     "Current Stock",
     "Forecast Demand",
+    "Days of Supply (Runout Time)",
     "Movement",
     "Sales Velocity (units/day)",
     "Stock-Out Risk",
@@ -53,6 +56,9 @@ def _inject_stock_risk_styles() -> None:
     st.markdown(
         """
         <style>
+        .risk-page-title {
+            margin-top:-.5rem !important;
+        }
         .risk-card {
             min-height:5.4rem;
             margin-bottom:.55rem;
@@ -183,7 +189,7 @@ def _inject_stock_risk_styles() -> None:
             line-height:1.18;
         }
         .risk-distribution-title {
-            margin-top: 2.0rem !important;
+            margin-top: .5rem !important;
             color:var(--tesph-text-subtle);
             font-size:.68rem;
             font-weight:700;
@@ -198,32 +204,46 @@ def _inject_stock_risk_styles() -> None:
         div[data-testid="stVerticalBlockBorderWrapper"] {
             height:100% !important;
         }
-        .risk-filter-row {
-            display:flex;
-            justify-content:flex-end;
-            gap:.45rem;
-            margin:0;
-        }
-        .st-key-risk_filter_controls {
-            margin-bottom:-.8rem;
-        }
-        .risk-filter-row div[data-testid="stButton"] > button {
-            min-height:2rem !important;
-            padding:.2rem .8rem !important;
-            border-radius:999px !important;
-            border:1px solid var(--tesph-border) !important;
-            box-shadow:none !important;
-            font-size:.76rem !important;
-            font-weight:750 !important;
-        }
-        .risk-filter-row div[data-testid="stButton"] > button[kind="primary"] {
-            border-color:#D9980F !important;
-            background:#D9980F !important;
-            color:#22201D !important;
-        }
-        .risk-filter-row div[data-testid="stButton"] > button[kind="secondary"] {
+        div.st-key-risk_filter_dropdown > button {
+            min-height:2.35rem !important;
+            justify-content:space-between !important;
+            border:1px solid #E4DDD2 !important;
+            border-radius:.6rem !important;
             background:#FFFFFF !important;
             color:#22201D !important;
+            box-shadow:none !important;
+        }
+        div.st-key-risk_no_forecast_button > button {
+            min-height:2.35rem !important;
+            border:1px solid #E4DDD2 !important;
+            border-radius:.6rem !important;
+            box-shadow:none !important;
+        }
+        div.st-key-risk_filter_dropdown [data-testid="stPopoverBody"] {
+            padding:.35rem !important;
+        }
+        div.st-key-risk_filter_dropdown [data-testid="stPopoverBody"] button {
+            justify-content:flex-start !important;
+            border:0 !important;
+            box-shadow:none !important;
+        }
+        div.st-key-risk_filter_dropdown [data-testid="stPopoverBody"] hr {
+            margin:.3rem 0 !important;
+            border-color:#E4DDD2 !important;
+        }
+        div.st-key-stock_out_risk_search [data-testid="stTextInput"] [data-baseweb="input"],
+        div.st-key-stock_out_risk_search [data-testid="stTextInput"] [data-baseweb="base-input"] {
+            background:#FFFFFF !important;
+            border-color:#E4DDD2 !important;
+            box-shadow:none !important;
+        }
+        div.st-key-stock_out_risk_search [data-testid="stTextInput"] input {
+            background:transparent !important;
+        }
+        div.st-key-stock_out_risk_search [data-testid="stTextInput"] [data-baseweb="input"] svg {
+            background:transparent !important;
+            color:#625C54 !important;
+            fill:currentColor !important;
         }
         </style>
         """,
@@ -288,11 +308,17 @@ def _risk_base(
 
 
 def _display_table(base: pd.DataFrame) -> pd.DataFrame:
+    stock = base.get("Current Stock", pd.Series(index=base.index, dtype="object"))
+    demand = base.get("Forecast Demand", pd.Series(index=base.index, dtype="object"))
     display = pd.DataFrame(
         {
             "Product": base.get("Product", pd.Series(dtype="object")),
-            "Current Stock": base.get("Current Stock", pd.Series(dtype="float")),
-            "Forecast Demand": base.get("Forecast Demand", pd.Series(dtype="float")),
+            "Current Stock": stock,
+            "Forecast Demand": demand,
+            "Days of Supply (Runout Time)": [
+                calculate_days_of_supply(stock_value, demand_value)
+                for stock_value, demand_value in zip(stock, demand)
+            ],
             "Movement": base.get("Movement Classification", pd.Series(dtype="object")),
             "Sales Velocity (units/day)": base.get("Sales Velocity", pd.Series(dtype="float")),
             "Stock-Out Risk": base.get("Stock-Out Risk", pd.Series(dtype="object")),
@@ -385,22 +411,39 @@ def _render_distribution(counts: pd.Series) -> None:
 
 
 def _risk_filter() -> str:
-    with st.container(key="risk_filter_controls"):
-        st.markdown('<div class="risk-filter-row">', unsafe_allow_html=True)
-        columns = st.columns(4, gap="small")
-        current = st.session_state.get(RISK_FILTER_KEY, "All")
-        for index, label in enumerate(("All", "High", "Medium", "Low")):
-            with columns[index]:
-                if st.button(
-                    label,
-                    key=f"risk_filter_{label.lower()}",
-                    type="primary" if current == label else "secondary",
-                    width="stretch",
-                ):
-                    st.session_state[RISK_FILTER_KEY] = label
-                    st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-    return st.session_state.get(RISK_FILTER_KEY, "All")
+    options = ("All", "High", "Medium", "Low")
+    current = st.session_state.get(RISK_FILTER_KEY, "All")
+    if current not in (*options, "No Forecast Demand"):
+        current = "All"
+        st.session_state[RISK_FILTER_KEY] = current
+    dropdown_selection = current if current in options else "All"
+    label = "All Priorities" if dropdown_selection == "All" else dropdown_selection
+
+    with st.popover(f"{label}  ", key="risk_filter_dropdown", width="stretch"):
+        for option in options:
+            option_label = "All Priorities" if option == "All" else option
+            if st.button(
+                option_label,
+                key=f"risk_filter_option_{option.lower().replace(' ', '_')}",
+                type="primary" if dropdown_selection == option else "tertiary",
+                width="stretch",
+            ):
+                st.session_state[RISK_FILTER_KEY] = option
+                st.rerun()
+
+    return current
+
+
+def _no_forecast_filter_button() -> None:
+    selected = st.session_state.get(RISK_FILTER_KEY) == "No Forecast Demand"
+    if st.button(
+        "No Forecast Demand",
+        key="risk_no_forecast_button",
+        type="primary" if selected else "secondary",
+        width="stretch",
+    ):
+        st.session_state[RISK_FILTER_KEY] = "All" if selected else "No Forecast Demand"
+        st.rerun()
 
 
 def _selected_product(base: pd.DataFrame) -> pd.Series | None:
@@ -526,9 +569,10 @@ overview_content_column, distribution_column = st.columns(
     vertical_alignment="top",
 )
 with overview_content_column:
-    section_header(
-        "Risk Overview",
-        "View the distribution of stock-out risk levels across products based on current inventory and forecasted demand.",
+    st.markdown(
+        '<h2 class="section-title risk-page-title">Risk Overview</h2>'
+        '<p class="section-description">View the distribution of stock-out risk levels across products based on current inventory and forecasted demand.</p>',
+        unsafe_allow_html=True,
     )
     st.markdown('<span class="risk-overview-marker"></span>', unsafe_allow_html=True)
     overview_columns = st.columns(3, gap="medium", vertical_alignment="top")
@@ -547,28 +591,57 @@ with distribution_column:
     with st.container(key="risk_distribution_chart"):
         _render_distribution(risk_counts)
 
-header_left, header_right = st.columns((1, .85), gap="large", vertical_alignment="bottom")
-with header_left:
-    section_header(
-        "Stock-Out Risk by Product",
-        "Review product-level stock availability, forecasted demand, and stock-out risk classifications.",
+section_header(
+    "Stock-Out Risk by Product",
+    "Review product-level stock availability, forecasted demand, and stock-out risk classifications.",
+)
+search_column, filter_column, no_forecast_column = st.columns(
+    (1.8, 1, 0.55), gap="small", vertical_alignment="bottom"
+)
+with search_column:
+    search_query = st.text_input(
+        "Search SKU or product",
+        key=PRODUCT_SEARCH_KEY,
+        placeholder="Type part of a product name or SKU",
+        icon=":material/search:",
+        label_visibility="collapsed",
     )
-with header_right:
+with filter_column:
     selected_filter = _risk_filter()
+with no_forecast_column:
+    _no_forecast_filter_button()
+filtered = filter_risk_records(base, selected_filter, search_query)
 
-filtered = base.copy()
-if selected_filter in {"High", "Medium", "Low"}:
-    filtered = filtered.loc[filtered["Stock-Out Risk"].astype(str).eq(selected_filter)]
+if filtered.empty:
+    info_message("No products match the selected risk filter and search.")
+    display = _display_table(filtered)
+else:
+    display = _display_table(filtered)
 
-display = _display_table(filtered)
 st.dataframe(
     display,
     hide_index=True,
     width="stretch",
+    height=420,
+    row_height=35,
     column_config={
-        "Current Stock": st.column_config.NumberColumn("Current Stock", format="%.0f"),
-        "Forecast Demand": st.column_config.NumberColumn("Forecast Demand", format="%.0f"),
-        "Sales Velocity (units/day)": st.column_config.NumberColumn("Sales Velocity (units/day)", format="%.2f"),
+        "Product": st.column_config.TextColumn("Product", width="medium"),
+        "Current Stock": st.column_config.NumberColumn(
+            "Current Stock", format="%.0f", width="small"
+        ),
+        "Forecast Demand": st.column_config.NumberColumn(
+            "Forecast Demand", format="%.0f", width="small"
+        ),
+        "Days of Supply (Runout Time)": st.column_config.TextColumn(
+            "Days of Supply (Runout Time)", width="medium",
+            help="Estimated days of stock cover based on current stock and the seven-day forecast rate.",
+        ),
+        "Movement": st.column_config.TextColumn("Movement", width="small"),
+        "Sales Velocity (units/day)": st.column_config.NumberColumn(
+            "Sales Velocity (units/day)", format="%.2f", width="small"
+        ),
+        "Stock-Out Risk": st.column_config.TextColumn("Stock-Out Risk", width="small"),
+        "Priority": st.column_config.TextColumn("Priority", width="small"),
     },
 )
 
@@ -583,7 +656,7 @@ with comparison_title:
         "Compare available inventory against forecasted demand for the selected product.",
     )
 with comparison_select:
-    selected_row = _selected_product(base)
+    selected_row = _selected_product(filtered)
 
 with st.container(border=True, key="stock_forecast_panel"):
     if selected_row is not None:

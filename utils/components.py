@@ -2,6 +2,7 @@
 
 import base64
 import html
+import math
 import re
 import time
 from collections.abc import Sequence
@@ -34,6 +35,7 @@ from utils.notifications import (
     mark_all_read,
     unread_count,
 )
+from utils.session_timeout import clear_reload_script, guarded_reload_script, reload_delay_ms
 from utils.state import DataStatus, get_data_status, get_etl_active_step, initialize_app_state
 
 
@@ -97,6 +99,8 @@ def inject_global_styles() -> None:
         [data-testid="stHeader"], [data-testid="stToolbar"] { background:transparent; pointer-events:none; }
         [data-testid="stToolbarActions"], [data-testid="stAppDeployButton"], [data-testid="stMainMenu"] { display:none !important; }
         .block-container { max-width:1440px !important; padding:0 var(--tesph-content-gutter) 2.5rem !important; }
+        [data-testid="stElementContainer"]:has(.tesph-topbar-spacer) { margin:0 !important; padding:0 !important; }
+        .tesph-topbar-spacer { display:block; height:var(--tesph-topbar-height) !important; margin:0 !important; padding:0 !important; }
 
         [data-testid="stMarkdownContainer"] h1 a,
         [data-testid="stMarkdownContainer"] h2 a,
@@ -159,7 +163,6 @@ def inject_global_styles() -> None:
         [data-testid="stSidebar"]:has(.tesph-sidebar-collapsed), [data-testid="stSidebar"][aria-expanded="false"]:not(:has(.tesph-sidebar-expanded)) { min-width:var(--tesph-sidebar-collapsed-width) !important; width:var(--tesph-sidebar-collapsed-width) !important; max-width:var(--tesph-sidebar-collapsed-width) !important; display:block !important; visibility:visible !important; transform:none !important; overflow-x:hidden !important; }
         [data-testid="stSidebar"]:has(.tesph-sidebar-collapsed) [data-testid="stSidebarContent"], [data-testid="stSidebar"]:has(.tesph-sidebar-collapsed) [data-testid="stSidebarUserContent"], [data-testid="stSidebar"][aria-expanded="false"]:not(:has(.tesph-sidebar-expanded)) [data-testid="stSidebarContent"], [data-testid="stSidebar"][aria-expanded="false"]:not(:has(.tesph-sidebar-expanded)) [data-testid="stSidebarUserContent"] { min-width:var(--tesph-sidebar-collapsed-width) !important; width:var(--tesph-sidebar-collapsed-width) !important; max-width:var(--tesph-sidebar-collapsed-width) !important; padding:0 !important; overflow-x:hidden !important; }
 
-        .tesph-topbar-spacer { height:var(--tesph-topbar-height) !important; }
         div.stElementContainer:has(.tesph-topbar), .tesph-topbar { pointer-events:none; }
         .tesph-topbar { position:fixed; inset:0 0 auto 0; z-index:100; display:grid; grid-template-columns:var(--tesph-sidebar-expanded-width) minmax(0, 1fr) auto; align-items:stretch; width:auto; height:var(--tesph-topbar-height) !important; min-height:var(--tesph-topbar-height) !important; margin:0; padding:0; overflow:hidden; background:var(--tesph-brand) !important; border-bottom:1px solid var(--tesph-brand-strong) !important; box-shadow:0 1px 0 rgba(26,18,8,.12), 0 8px 24px rgba(38,27,8,.08) !important; }
         .tesph-topbar-collapsed { grid-template-columns:var(--tesph-sidebar-collapsed-width) minmax(0, 1fr) auto !important; }
@@ -256,7 +259,7 @@ def inject_global_styles() -> None:
 
         [data-testid="stSidebar"]:has(.tesph-sidebar-expanded) .nav-section {
             margin:.16rem .4rem .12rem !important;
-            margin-bottom:.22rem !important;
+            margin-bottom:.64rem !important;
             color:#625C54 !important;
             font-size:.68rem !important;
             font-weight:900 !important;
@@ -267,9 +270,9 @@ def inject_global_styles() -> None:
         .nav-gate-note { margin:.25rem .5rem !important; padding:.35rem .5rem !important; border:1px solid var(--tesph-border) !important; border-left:3px solid var(--tesph-info) !important; border-radius:.45rem !important; background:var(--tesph-info-bg) !important; color:#305D72 !important; font-size:.70rem !important; line-height:1.3 !important; }
         [data-testid="stSidebar"]:has(.tesph-sidebar-expanded) [data-testid="stPageLink-NavLink"] { display:flex !important; align-items:center !important; box-sizing:border-box !important; width: calc(100% - 0rem) !important;
         max-width: calc(100% - 0.20rem) !important;
-        min-height:1.80rem !important;
-        margin: .06rem .1rem !important;
-        padding: .16rem .56rem !important;border:1px solid transparent !important; border-radius:.45rem !important; color:var(--tesph-text-muted) !important; font-size:.88rem !important; font-weight:500 !important; line-height:1.25 !important; opacity:1 !important; transition:background var(--tesph-transition), border-color var(--tesph-transition), color var(--tesph-transition), transform var(--tesph-transition); }
+        min-height:2rem !important;
+        margin: .15rem .1rem !important;
+        padding: .15rem .66rem !important;border:1px solid transparent !important; border-radius:.45rem !important; color:var(--tesph-text-muted) !important; font-size:.88rem !important; font-weight:500 !important; line-height:1.50 !important; opacity:1 !important; transition:background var(--tesph-transition), border-color var(--tesph-transition), color var(--tesph-transition), transform var(--tesph-transition); }
         [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"] * { color:inherit !important; opacity:1 !important; }
         [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"] svg { stroke:currentColor !important; }
         [data-testid="stSidebar"]:has(.tesph-sidebar-expanded) [data-testid="stPageLink-NavLink"]:hover { border-color:#E8D6A6 !important; background:#FFF8E2 !important; color:var(--tesph-text) !important; transform:translateX(1px); }
@@ -904,35 +907,46 @@ def guard_protected_page() -> None:
     """Show the login screen when a page is opened outside the main router."""
     initialize_app_state()
     if not is_authenticated():
+        _clear_session_timeout_reload_timer()
         inject_global_styles()
         hide_sidebar_for_logged_out_user()
         render_login_screen()
         st.stop()
 
 
-def _session_timeout_reload_timer() -> None:
-    """Refresh the browser when inactivity timeout should be evaluated."""
-    last_activity = st.session_state.get("_last_activity_time")
-    if last_activity is None:
-        return
-    timeout_seconds = get_session_timeout_minutes() * 60
-    remaining_seconds = float(last_activity) + timeout_seconds - time.time()
-    delay_ms = max(1_000, int(remaining_seconds * 1_000) + 1_000)
-    script = f"""
-    <script>
-    window.setTimeout(() => {{
-        window.parent.location.reload();
-    }}, {delay_ms});
-    </script>
-    """
+def _clear_session_timeout_reload_timer() -> None:
+    """Cancel a browser timer when the authenticated page shell is absent."""
+    script = clear_reload_script()
     if hasattr(st, "html"):
         st.html(script, unsafe_allow_javascript=True)
     else:
-        st_components.html(
-            script,
-            height=0,
-            width=0,
-        )
+        st_components.html(script, height=0, width=0)
+
+
+def _session_timeout_reload_timer() -> None:
+    """Schedule one guarded reload at the current authenticated session deadline."""
+    if not st.session_state.get("authenticated"):
+        _clear_session_timeout_reload_timer()
+        return
+    last_activity = st.session_state.get("_last_activity_time")
+    try:
+        if last_activity is None:
+            _clear_session_timeout_reload_timer()
+            return
+        deadline = float(last_activity) + get_session_timeout_minutes() * 60
+    except (TypeError, ValueError, OverflowError):
+        _clear_session_timeout_reload_timer()
+        return
+    if not math.isfinite(deadline):
+        _clear_session_timeout_reload_timer()
+        return
+    st.session_state["_session_timeout_reload_deadline"] = deadline
+    delay_ms = reload_delay_ms(deadline, time.time())
+    script = guarded_reload_script(deadline, delay_ms)
+    if hasattr(st, "html"):
+        st.html(script, unsafe_allow_javascript=True)
+    else:
+        st_components.html(script, height=0, width=0)
 
 
 def render_page_shell(title: str, breadcrumb: str) -> None:

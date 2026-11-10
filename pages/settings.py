@@ -66,7 +66,7 @@ def _settings_styles() -> None:
             background:transparent !important;
             border-bottom:3px solid #F0AD0F !important;
         }
-        .settings-header { display:flex; align-items:flex-start; gap:1rem; margin:1.15rem 0 .9rem; }
+        .settings-header { display:flex; align-items:flex-start; gap:1rem; margin:0 0 .9rem; }
         .settings-header-icon { display:grid; margin-top:1.05rem; place-items:center; width:2.4rem; height:2.4rem; flex:0 0 2.4rem; border-radius:.55rem; background:#FEF7E7; color:#D9980F; }
         .settings-header .section-title { margin:0 0 .12rem !important; font-size:1.55rem !important; font-weight:700 !important; line-height:1.25 !important; }
         .settings-header .section-description { margin-top: -.50rem !important; }

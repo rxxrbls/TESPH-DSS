@@ -20,14 +20,23 @@ st.markdown(
     }
 
     [data-testid="stElementContainer"]:has(.dashboard-second-row-anchor)
-    + [data-testid="stHorizontalBlock"] .section-title {
+    + [data-testid="stHorizontalBlock"] .dashboard-recommendations-title {
         margin-top: .5rem !important;
+    }
+
+    .dashboard-top-title {
+        margin-top: 0 !important;
+    }
+
+    .dashboard-recommendations-title {
+        margin-bottom: .12rem !important;
     }
     div.st-key-view_all_recommendations {
     display: flex !important;
     justify-content: flex-end !important;
     align-items: center !important;
     margin: 0 !important;
+    transform: translateY(1.15rem);
     }
 
     div.st-key-view_all_recommendations .stButton > button[kind="secondary"],
@@ -103,17 +112,24 @@ if not analytics or analytics.get("sales_summary") is None or analytics["sales_s
     st.stop()
 
 risk_data = get_risk_results()
+recommendation_data = get_recommendation_results()
+high_count = 0
+immediate_count = 0
 if risk_data is not None and not risk_data.empty and "Stock-Out Risk" in risk_data.columns:
-    crit_count = int((risk_data["Stock-Out Risk"] == "Critical").sum())
-    high_count = int((risk_data["Stock-Out Risk"] == "High").sum())
-    if crit_count > 0 or high_count > 0:
-        st.warning(
-            f"⚠️ **Immediate Action Required**: {crit_count} Critical and {high_count} High stock-out risk item(s) detected. "
-            "Navigate to **Replenishment Recommendations** to review purchasing quantities."
-        )
-
+    high_count = int(risk_data["Stock-Out Risk"].astype("string").eq("High").fillna(False).sum())
+if recommendation_data is not None and not recommendation_data.empty and "Recommendation Priority" in recommendation_data.columns:
+    immediate_count = int(recommendation_data["Recommendation Priority"].astype("string").eq("Immediate").fillna(False).sum())
+if high_count or immediate_count:
+    st.warning(
+        f"Immediate Action Required: {high_count} High stock-out risk item(s) and {immediate_count} Immediate-priority recommendation(s) detected. "
+        "Navigate to **Replenishment Recommendations** to review purchasing quantities."
+    )
 summary = analytics["sales_summary"].iloc[0]
-section_header("Store overview", "A current view of the processed Shopee transaction dataset.")
+st.markdown(
+    '<h2 class="section-title dashboard-top-title">Store Overview</h2>'
+    '<p class="section-description">A current view of the processed Shopee transaction dataset.</p>',
+    unsafe_allow_html=True,
+)
 kpis = (
     ("Gross revenue", currency(summary["Gross Revenue"]), False),
     ("Total orders", number(summary["Order Count"]), False),
@@ -128,7 +144,7 @@ trend_column, mix_column = st.columns((1.45, 1), gap="medium")
 
 with trend_column:
     section_header(
-        "Sales trend",
+        "Sales Trend",
         "Monthly net revenue after returns, grouped by category.",
     )
     if not render_sales_trend(
@@ -141,7 +157,7 @@ with trend_column:
 
 with mix_column:
     section_header(
-        "Category mix",
+        "Category Mix",
         "Share of revenue by category.",
     )
     if not render_category_mix(
@@ -164,7 +180,7 @@ products_column, recommendations_column = st.columns(
 
 with products_column:
     section_header(
-        "Product performance",
+        "Product Performance",
         "Top products by gross revenue.",
     )
     if not render_product_performance(
@@ -180,10 +196,14 @@ with recommendations_column:
     recommendations_available = recommendations is not None and not recommendations.empty
 
     if recommendations_available:
-        title_column, view_all_column = st.columns((1, .34), gap="small")
+        title_column, view_all_column = st.columns(
+            (1.4, .24),
+            gap="small",
+            vertical_alignment="center",
+        )
         with title_column:
             st.markdown(
-                '<h2 class="section-title">Priority recommendations</h2>',
+                '<h2 class="section-title dashboard-recommendations-title">Priority Recommendations</h2>',
                 unsafe_allow_html=True,
             )
         with view_all_column:
@@ -198,7 +218,7 @@ with recommendations_column:
         )
     else:
         section_header(
-            "Priority recommendations",
+            "Priority Recommendations",
             "Priority actions for replenishment.",
         )
 

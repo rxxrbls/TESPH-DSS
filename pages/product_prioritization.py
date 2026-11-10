@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.prescriptive.mca import MCA_CRITERIA as LEGACY_CRITERIA, MCA_WEIGHTS as LEGACY_WEIGHTS
 from three_criterion_mca import CRITERIA as THREE_CRITERIA, RATE as THREE_RATE, SCENARIOS
+from utils.prioritization_display import ranking_table
 from utils.components import empty_state, guard_protected_page, info_message, render_page_shell, section_header
 from utils.state import (
     DataStatus,
@@ -250,16 +251,7 @@ def _why_text(row: pd.Series) -> str:
 
 
 def _ranking_table(frame: pd.DataFrame) -> pd.DataFrame:
-    table = frame.rename(
-        columns={
-            "Priority Rank": "Rank",
-            "SKU Priority Score": "MCA Score",
-            "Priority Level": "Priority",
-        }
-    ).copy()
-    table["Why Prioritized"] = table.apply(_why_text, axis=1)
-    columns = ["Rank", "Product", "SKU", "MCA Score", "Priority", "Why Prioritized"]
-    return table[[column for column in columns if column in table.columns]]
+    return ranking_table(frame, _why_text)
 
 
 def _render_empty_state_diagnostics(
@@ -465,7 +457,7 @@ with right:
     with st.container(border=True):
         st.markdown('<p class="priority-card-title">Product Prioritization Ranking</p>', unsafe_allow_html=True)
         st.markdown(
-            '<p class="priority-card-copy">Review product rankings, priority level tiers (High, Medium, Low), and key drivers.</p>',
+            '<p class="priority-card-copy">Compare raw Sales Velocity, Forecast Demand, and recorded Return Rate values beside each priority score. Normalized weighted contributions are available in Priority Detail Breakdown.</p>',
             unsafe_allow_html=True,
         )
         ranking = _ranking_table(approved_ranked)
@@ -476,6 +468,10 @@ with right:
             column_config={
                 "Rank": st.column_config.NumberColumn("Rank", format="%d"),
                 "MCA Score": st.column_config.NumberColumn("MCA Score", format="%.3f"),
+                "Sales Velocity (units/day)": st.column_config.NumberColumn("Sales Velocity (units/day)", format="%.2f"),
+                "Forecast Demand (units)": st.column_config.NumberColumn("Forecast Demand (units)", format="%.2f"),
+                "Return Rate (recorded units)": st.column_config.NumberColumn("Return Rate (recorded units)", format="%.2%"),
+                "Return Rate": st.column_config.NumberColumn("Return Rate", format="%.2%"),
             },
         )
 

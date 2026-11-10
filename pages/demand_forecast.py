@@ -12,6 +12,7 @@ from utils.components import (
     render_page_shell,
 )
 from utils.forecast_display import format_metric, render_forecast_accuracy
+from utils.forecast_table import sku_forecast_horizon, sku_forecast_table
 from utils.state import (
     DataStatus,
     ensure_derived_outputs_for_active_dataset,
@@ -51,6 +52,9 @@ def _inject_forecast_styles() -> None:
     st.markdown(
         """
         <style>
+        .forecast-page-title {
+            margin-top:0 !important;
+        }
         .forecast-card-title {
             margin:0;
             color:var(--tesph-text);
@@ -127,10 +131,6 @@ def _inject_forecast_styles() -> None:
                 #B77908 0 6px,
                 transparent 6px 10px
             );
-        }
-        div.st-key-forecast_selected_category {
-            position:relative;
-            top:35px;
         }
         div.st-key-forecast_selected_category .react-aria-ComboBox > [role="group"] {
             border:1.5px solid #D9980F !important;
@@ -445,6 +445,29 @@ def _render_accuracy(results: dict[str, object], category: str) -> None:
         )
 
 
+def _render_sku_forecasts(results: dict[str, object]) -> None:
+    st.markdown('<h2 class="section-title">7-Day SKU Demand Forecast</h2>', unsafe_allow_html=True)
+    st.markdown('<p class="section-description">Daily projected units from the selected SKU-level forecasting method.</p>', unsafe_allow_html=True)
+    table = sku_forecast_table(results)
+    if table.empty:
+        info_message("No SKU forecast output is available for this dataset.")
+        return
+    query = st.text_input("Search SKU or product", key="sku_forecast_search")
+    if query.strip():
+        searchable = table.astype("string").fillna("").agg(" ".join, axis=1)
+        table = table.loc[searchable.str.contains(query.strip(), case=False, regex=False)]
+    if table.empty:
+        info_message("No forecasts match this search.")
+        return
+    horizon = sku_forecast_horizon(results, table)
+    if horizon is None:
+        st.info("The forecast period dates are unavailable or inconsistent across eligible SKUs.")
+    else:
+        start, end = horizon
+        st.info(f"**Seven-day planning horizon:** {start.strftime('%b')} {start.day}, {start.year} – {end.strftime('%b')} {end.day}, {end.year}")
+    st.dataframe(table.drop(columns="Forecast Days"), hide_index=True, width="stretch", height=360)
+
+
 guard_protected_page()
 render_page_shell("Demand Forecast", "Analyze · Predictive")
 _inject_forecast_styles()
@@ -488,15 +511,12 @@ if categories:
     title_column, category_column = st.columns((1, .32), gap="large", vertical_alignment="top")
     with title_column:
         st.markdown(
-            '<h2 class="section-title">Demand Forecast</h2>',
+            '<h2 class="section-title forecast-page-title">Demand Forecast</h2>'
+            '<p class="section-description">Review historical demand and forecasted demand for eligible product categories.</p>',
             unsafe_allow_html=True,
         )
     with category_column:
         selected_category = _choose_category(categories)
-    st.markdown(
-        '<p class="section-description">Review historical demand and forecasted demand for eligible product categories.</p>',
-        unsafe_allow_html=True,
-    )
 
     methods = _available_methods(forecast_results, selected_category)
     if methods:
@@ -518,10 +538,7 @@ if categories:
                 info_message("Forecast chart data is unavailable for the selected category and method.")
 else:
     st.markdown(
-        '<h2 class="section-title">Demand Forecast</h2>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
+        '<h2 class="section-title forecast-page-title">Demand Forecast</h2>'
         '<p class="section-description">Review historical demand and forecasted demand for eligible product categories.</p>',
         unsafe_allow_html=True,
     )
@@ -536,16 +553,34 @@ else:
 
 # Executive Accuracy Summary
 best_methods = forecast_results.get("best_methods") if isinstance(forecast_results, dict) else None
+_render_sku_forecasts(forecast_results)
 if isinstance(best_methods, pd.DataFrame) and not best_methods.empty and "Method" in best_methods.columns:
     primary_method = best_methods["Method"].mode()[0] if not best_methods["Method"].empty else "Moving Average"
-    sku_count = len(best_methods)
+    metrics = _without_seasonal(_frame(forecast_results.get("validation_metrics")))
+    sku_count = best_methods["SKU"].nunique() if "SKU" in best_methods else len(best_methods)
+    validated_skus = metrics["SKU"].nunique() if "SKU" in metrics else 0
+    validation_status = "Available" if validated_skus else "Unavailable"
+    if validated_skus and validated_skus < sku_count:
+        validation_status = f"Incomplete ({validated_skus}/{sku_count} SKUs)"
     st.markdown('<div style="height: 0.5rem;"></div>', unsafe_allow_html=True)
     with st.container(border=True):
         st.markdown('<p class="forecast-card-title">Forecast Model Summary</p>', unsafe_allow_html=True)
         c1, c2, c3 = st.columns(3)
         c1.metric("Evaluated SKUs", f"{sku_count:,}")
         c2.metric("Primary Algorithm", primary_method)
-        c3.metric("Model Confidence", "High (Holdout-Validated)")
+        c3.metric("Holdout Validation", validation_status)
+    if not metrics.empty:
+        columns = [c for c in ("SKU", "Product", "Method", "MAE", "RMSE", "MAPE", "Raw MAPE", "R2", "MAPE Status") if c in metrics]
+        if columns:
+            st.caption("Holdout metrics are associated with each SKU and model. Scores do not imply a confidence rating.")
+            display_metrics = metrics[columns].rename(columns={"R2": "R²"})
+            if "MAPE Status" in metrics and metrics["MAPE Status"].astype("string").str.startswith("Adjusted", na=False).all():
+                display_metrics = display_metrics.rename(columns={"MAPE": "Adjusted MAPE (%)"})
+            else:
+                display_metrics = display_metrics.rename(columns={"MAPE": "MAPE (%)"})
+            st.dataframe(display_metrics, hide_index=True, width="stretch")
+    else:
+        st.caption("Holdout validation is unavailable; no validation accuracy metrics are reported.")
 
 with st.expander("Statistical Model Diagnostics (MAE, RMSE, MAPE, R² & Backtests)", expanded=False):
     render_forecast_accuracy(forecast_results)
