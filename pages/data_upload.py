@@ -63,7 +63,7 @@ from utils.state import (
     set_prescriptive_results,
     set_stock_upload_feedback,
 )
-from utils.stock_validation import validate_stock_as_of
+from utils.stock_validation import snapshot_date_from_filename, validate_stock_as_of
 
 
 LOGGER = logging.getLogger(__name__)
@@ -75,15 +75,26 @@ def render_return_refund_upload():
     import io
     import zipfile
     from three_criterion_mca import Coverage
+    transactions = get_prepared_transactions()
+    transaction_dates = (
+        pd.to_datetime(transactions["order_date"], errors="coerce").dropna()
+        if isinstance(transactions, pd.DataFrame) and "order_date" in transactions
+        else pd.Series(dtype="datetime64[ns]")
+    )
+    default_start = transaction_dates.min().date() if not transaction_dates.empty else date(2020, 5, 22)
+    default_end = transaction_dates.max().date() if not transaction_dates.empty else date(2026, 4, 24)
+    default_request_start = min(default_start, date(2020, 5, 1))
+    default_request_end = default_end
+    date_range_key = f"{default_start.isoformat()}_{default_end.isoformat()}"
     with st.expander("Return/refund data — three-criterion MCA", expanded=False):
         st.caption("Upload the cleaned backend CSV or handoff ZIP. Rankings remain provisional until TA weight sign-off. The rate counts recorded refunded quantities, including Refund Only; it is not a physical-return rate.")
         upload = st.file_uploader("Cleaned return/refund evidence", type=["csv", "zip"], key="return_evidence")
         with st.form("return_coverage"):
             a, b = st.columns(2)
-            start = a.date_input("Order-date assessment start", date(2020, 5, 22))
-            end = b.date_input("Order-date assessment end", date(2026, 4, 24))
-            request_start = a.date_input("Request-date coverage start", date(2020, 5, 1))
-            request_end = b.date_input("Request-date coverage end", date(2026, 4, 24))
+            start = a.date_input("Order-date assessment start", default_start, key=f"return_order_start_{date_range_key}")
+            end = b.date_input("Order-date assessment end", default_end, key=f"return_order_end_{date_range_key}")
+            request_start = a.date_input("Request-date coverage start", default_request_start, key=f"return_request_start_{date_range_key}")
+            request_end = b.date_input("Request-date coverage end", default_request_end, key=f"return_request_end_{date_range_key}")
             export_start = a.date_input("Export request dates: first", date(2026, 10, 15))
             export_end = b.date_input("Export request dates: last", date(2026, 10, 16))
             established = st.checkbox("Coverage is confirmed for the selected request dates, including empty monthly files. Later requests are outside this assessment.")
@@ -95,8 +106,12 @@ def render_return_refund_upload():
                 tx = get_prepared_transactions()
                 stock = get_inventory_crosswalk()
                 forecasts = get_forecast_results()
-                if tx is None or stock is None or not forecasts:
-                    raise ValueError("Process sales and connect a valid current-stock snapshot first.")
+                if tx is None or tx.empty:
+                    raise ValueError("No transaction history is available. Upload and process transaction files first.")
+                if stock is None or stock.empty:
+                    raise ValueError("No validated inventory snapshot is available. Upload and validate current stock first.")
+                if not forecasts or not isinstance(forecasts.get("forecast_output"), pd.DataFrame) or forecasts["forecast_output"].empty:
+                    raise ValueError("No eligible SKU forecasts are available. Validate stock mapping and regenerate forecasts first.")
                 if upload.name.lower().endswith(".zip"):
                     with zipfile.ZipFile(io.BytesIO(upload.getvalue())) as archive:
                         matches = [n for n in archive.namelist() if n.endswith("prepared_return_refund_backend.csv")]
@@ -451,6 +466,10 @@ with st.container(border=True):
     if uploaded_files:
         file_names = [f.name for f in uploaded_files]
         register_selected_upload(", ".join(file_names) if len(file_names) <= 2 else f"{len(file_names)} files selected")
+        shown_names = ", ".join(file_names[:3])
+        if len(file_names) > 3:
+            shown_names += f", and {len(file_names) - 3} more"
+        st.caption(f"{len(file_names)} file(s) selected: {shown_names}")
         for f in uploaded_files:
             if f.size > 100 * 1024 * 1024:
                 st.warning(f"'{f.name}' exceeds 100 MB. Processing is in memory and may take longer than usual.")
@@ -634,9 +653,15 @@ if get_data_status() is DataStatus.DATA_READY:
             st.caption(f"Selected stock file: {stock_file.name}")
             left, right = st.columns(2)
             latest_transaction_date = _latest_transaction_date(get_prepared_transactions())
-            stock_date_default = latest_transaction_date or pd.Timestamp.today().date()
+            filename_date = snapshot_date_from_filename(stock_file.name)
+            stock_date_default = filename_date or latest_transaction_date or pd.Timestamp.today().date()
             with left:
-                if latest_transaction_date is not None:
+                if filename_date is not None:
+                    st.caption(
+                        f"Detected {filename_date:%Y-%m-%d} in the filename. Confirm the actual "
+                        "snapshot date below or edit it if the filename is misleading."
+                    )
+                elif latest_transaction_date is not None:
                     st.caption(
                         "If this stock file has no snapshot date, the date below defaults "
                         "to the latest transaction date as the TA-approved estimate. "
@@ -650,7 +675,7 @@ if get_data_status() is DataStatus.DATA_READY:
                 stock_as_of = st.date_input(
                     "Stock snapshot as-of date",
                     value=stock_date_default,
-                    key="stock_as_of",
+                    key=f"stock_as_of_{stock_file.name}",
                 )
                 stock_date_confirmed = st.checkbox(
                     "I confirm this date, including the latest-transaction-date fallback if needed",

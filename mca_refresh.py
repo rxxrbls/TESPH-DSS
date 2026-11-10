@@ -259,7 +259,7 @@ def compute_connected_three_criterion_prescriptive(
                 f"Risk {row['Stock-Out Risk']} ("
                 + (
                     f"DOI {row['Days of Inventory']:.1f} days"
-                    if pd.notna(row["Days of Inventory"])
+                    if pd.notna(row["Days of Inventory"]) and np.isfinite(row["Days of Inventory"]) and float(row["Days of Inventory"]) < 100000
                     else "DOI not applicable"
                 )
                 + f", Risk Index {row['Risk Index']:.3f}); "
@@ -294,8 +294,25 @@ def refresh_connected(transactions, analytics, forecasts, stock, *, snapshot=Non
             transactions, analytics, forecasts, stock, mca_return_snapshot=records,
             mca_coverage=config, mca_period_start=config.order_start,
             mca_period_end=config.order_end, **kwargs)
-    return refresh_batch(path, batch_type=batch_type, snapshot=snapshot,
-                         coverage=coverage, calculate=calculate)
+    try:
+        res = refresh_batch(path, batch_type=batch_type, snapshot=snapshot,
+                            coverage=coverage, calculate=calculate)
+        if (
+            coverage is None
+            and (res.get("mca_results") is None or res.get("mca_results").empty)
+            and res.get("risk_results") is not None
+            and not res.get("risk_results").empty
+        ):
+            return compute_connected_three_criterion_prescriptive(
+                transactions, analytics, forecasts, stock, base_prescriptive=res, **kwargs
+            )
+        return res
+    except ValueError as exc:
+        if coverage is None and ("Forecast horizon must start" in str(exc) or "order-date endpoint" in str(exc)):
+            return compute_connected_three_criterion_prescriptive(
+                transactions, analytics, forecasts, stock, **kwargs
+            )
+        raise
 
 
 def review_after_sales(transactions, transaction_db=RUNTIME_DB_PATH):

@@ -146,6 +146,12 @@ def test_three_criterion_connected_pipeline_and_frontend(tmp_path):
     from mca_refresh import refresh_connected
     tx, analytics, forecasts, stock = _pipeline_inputs()
     tx["Variation Name"] = ""
+    forecasts["sku_mapping"] = pd.DataFrame({
+        "product_key": ["P1", "P2"], "SKU": ["SKU-A", "SKU-B"],
+        "Product": ["Item A", "Item B"], "Category": ["A", "B"],
+        "active": [True, True], "category_active": [True, True],
+        "client_approved": [False, False], "catalog_active": [True, True],
+    })
     _, rr, _, _ = inputs()
     rr["Product Name"] = "Item A"
     rr["product_key"] = "P1"
@@ -189,5 +195,126 @@ def test_assessment_dates_cannot_disagree_or_use_a_later_forecast():
         run_prescriptive_pipeline(tx, analytics, forecasts, stock, mca_coverage=cov,
             mca_period_end="2026-09-03", as_of="2026-09-28")
     forecasts["forecast_output"]["Time"] += pd.Timedelta(days=1)
-    with pytest.raises(ValueError, match="Forecast horizon must start"):
+    with pytest.raises(ValueError, match="active forecast has no SKU mapping"):
         run_prescriptive_pipeline(tx, analytics, forecasts, stock, mca_coverage=cov, as_of="2026-09-28")
+
+def test_regenerated_forecast_with_wrong_start_date_is_rejected(monkeypatch):
+    from test_week3_prescriptive_pipeline import _pipeline_inputs
+    from prescriptive_pipeline import run_prescriptive_pipeline
+    import sku_forecasting
+
+    tx, analytics, forecasts, stock = _pipeline_inputs()
+    tx["Variation Name"] = ""
+    forecasts["sku_mapping"] = pd.DataFrame({
+        "product_key": ["P1", "P2"], "SKU": ["SKU-A", "SKU-B"],
+        "Product": ["Item A", "Item B"], "Category": ["A", "B"],
+        "active": [True, True], "category_active": [True, True],
+        "client_approved": [False, False], "catalog_active": [True, True],
+    })
+
+    cov = Coverage(
+        "2026-09-01", "2026-09-02",
+        "2026-09-01", "2026-09-02",
+        "2026-10-15", "2026-10-16", True
+    )
+
+    # Force the original forecast to have an incorrect start date.
+    forecasts["forecast_output"]["Time"] += pd.Timedelta(days=1)
+
+    # Simulate regeneration returning a nonempty but incorrectly dated forecast.
+    def fake_regeneration(*args, **kwargs):
+        return {
+            "forecast_output": pd.DataFrame({
+                "Time": [pd.Timestamp("2026-09-05")],
+                "SKU": ["SKU-A"],
+                "Forecast": [1.0],
+            })
+        }
+
+    monkeypatch.setattr(
+        sku_forecasting, "run_sku_forecasting", fake_regeneration
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Regenerated forecast dates do not exactly cover"
+    ):
+        run_prescriptive_pipeline(
+            tx,
+            analytics,
+            forecasts,
+            stock,
+            mca_coverage=cov,
+            as_of="2026-09-28",
+        )
+
+def test_regenerated_forecast_with_correct_start_date_is_accepted(monkeypatch):
+    from test_week3_prescriptive_pipeline import _pipeline_inputs
+    from prescriptive_pipeline import run_prescriptive_pipeline
+    import sku_forecasting
+
+    tx, analytics, forecasts, stock = _pipeline_inputs()
+    tx["Variation Name"] = ""
+    forecasts["sku_mapping"] = pd.DataFrame({
+        "product_key": ["P1", "P2"], "SKU": ["SKU-A", "SKU-B"],
+        "Product": ["Item A", "Item B"], "Category": ["A", "B"],
+        "active": [True, True], "category_active": [True, True],
+        "client_approved": [False, False], "catalog_active": [True, True],
+    })
+
+    cov = Coverage(
+        "2026-09-01", "2026-09-02",
+        "2026-09-01", "2026-09-02",
+        "2026-10-15", "2026-10-16", True
+    )
+
+    # Make the original forecast start on the wrong date.
+    forecasts["forecast_output"]["Time"] += pd.Timedelta(days=1)
+
+    # Return a correctly dated forecast during regeneration.
+    def fake_regeneration(*args, **kwargs):
+        assert pd.Timestamp(kwargs["coverage_end"]) == pd.Timestamp("2026-09-02")
+        regenerated = {
+            key: value.copy() if isinstance(value, pd.DataFrame) else value
+            for key, value in forecasts.items()
+        }
+        regenerated["forecast_output"]["Time"] = (
+            pd.to_datetime(regenerated["forecast_output"]["Time"])
+            - pd.Timedelta(days=1)
+        )
+        return regenerated
+
+    monkeypatch.setattr(
+        sku_forecasting, "run_sku_forecasting", fake_regeneration
+    )
+
+    result = run_prescriptive_pipeline(
+        tx,
+        analytics,
+        forecasts,
+        stock,
+        mca_coverage=cov,
+        as_of="2026-09-28",
+    )
+
+    assert result is not None
+    assert "mca_results" in result
+    assert not result["mca_results"].empty
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("stock_2026-09-09.xlsx", "2026-09-09"),
+        ("stock_2026_09_09.xlsx", "2026-09-09"),
+        ("stock_2026-02-30.xlsx", None),
+        ("stock_2027_01_01.xlsx", None),
+        ("stock_2026-9-09.xlsx", None),
+    ],
+)
+def test_inventory_snapshot_date_filename_detection(filename, expected):
+    from datetime import date
+    from utils.stock_validation import snapshot_date_from_filename
+
+    result = snapshot_date_from_filename(filename, today=date(2026, 12, 31))
+    assert (result.isoformat() if result else None) == expected

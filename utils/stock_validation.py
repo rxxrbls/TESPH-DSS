@@ -1,8 +1,22 @@
 """Stock As-Of Date validation."""
-from datetime import date
+from datetime import date, datetime
+import re
 from methodology_config import REPLENISHMENT_CONFIG
 
 STOCK_RECENCY_THRESHOLD_DAYS = REPLENISHMENT_CONFIG.max_stock_age_days
+
+
+def snapshot_date_from_filename(filename: str, *, today: date | None = None) -> date | None:
+    """Extract a real, non-future YYYY-MM-DD or YYYY_MM_DD snapshot date."""
+    current_date = today or date.today()
+    match = re.search(r"(?<!\d)(\d{4}[-_]\d{2}[-_]\d{2})(?!\d)", filename)
+    if not match:
+        return None
+    try:
+        parsed = datetime.strptime(match.group(1).replace("_", "-"), "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    return parsed if parsed <= current_date else None
 
 
 def validate_stock_as_of(

@@ -123,21 +123,36 @@ def run_etl_from_upload(
         if on_step:
             on_step(index, name, msg)
 
+    def _file_issue_summary(file_issues: list[tuple[str, str]]) -> str:
+        parts = [f"{file_name}: {issue}" for file_name, issue in file_issues]
+        return "; ".join(parts)
+
     # ── Step 0: Ingest ──────────────────────────────────────────────
     _notify(0, "Ingest", f"Reading {len(file_list)} uploaded file(s)..." if len(file_list) > 1 else "Reading uploaded file...")
     temp_paths: list[Path] = []
     try:
         raw_frames: list[pd.DataFrame] = []
+        file_issues: list[tuple[str, str]] = []
         for f_bytes, f_name in file_list:
             t_path = _bytes_to_temp_path(f_bytes, f_name)
             temp_paths.append(t_path)
-            sub_df = extract_file(t_path)
+            try:
+                sub_df = extract_file(t_path)
+            except Exception as exc:
+                file_issues.append((f_name, str(exc)))
+                t_path.unlink(missing_ok=True)
+                continue
             t_path.unlink(missing_ok=True)
             if "source_file" not in sub_df.columns:
                 sub_df["source_file"] = f_name
             if "source_folder" not in sub_df.columns:
                 sub_df["source_folder"] = "uploaded"
             raw_frames.append(sub_df)
+
+        if file_issues:
+            issue_summary = _file_issue_summary(file_issues)
+            errors.append(f"Problematic file(s): {issue_summary}")
+            raise ValueError(f"Upload batch rejected because {len(file_issues)} file(s) were empty or unreadable: {issue_summary}")
 
         raw_df = pd.concat(raw_frames, ignore_index=True) if len(raw_frames) > 1 else raw_frames[0]
 
@@ -154,8 +169,12 @@ def run_etl_from_upload(
         for t_path in temp_paths:
             t_path.unlink(missing_ok=True)
 
-        error_key = "empty_file" if "no data rows" in str(exc).lower() else "ingestion_failed"
-        user_msg = get_user_message(error_key, str(exc))
+        error_key = "empty_file" if "no data rows" in str(exc).lower() or "empty or unreadable" in str(exc).lower() else "ingestion_failed"
+        due_to_batch = "empty or unreadable" in str(exc).lower()
+        technical_detail = str(exc)
+        if due_to_batch and "Problematic file(s):" not in technical_detail:
+            technical_detail = f"Problematic file(s): {technical_detail.split(': ', 1)[-1]}"
+        user_msg = get_user_message(error_key, technical_detail)
 
         steps.append(ETLStepResult(
             step_name="Ingest", step_index=0, success=False,

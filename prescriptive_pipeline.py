@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import ast
+from dataclasses import fields
+import logging
+
 import numpy as np
 import pandas as pd
 
@@ -169,6 +173,69 @@ def _safe_inventory(
     return safe
 
 
+def _recorded_forecast_config(forecast_results: dict, horizon_days: int):
+    """Restore the recorded forecast settings for a date-aligned regeneration."""
+    from methodology_config import ForecastConfig
+
+    defaults = ForecastConfig()
+    values = {item.name: getattr(defaults, item.name) for item in fields(ForecastConfig)}
+    recorded = forecast_results.get("methodology")
+    if isinstance(recorded, pd.DataFrame) and {"Parameter", "Value"}.issubset(recorded.columns):
+        for row in recorded.itertuples(index=False):
+            name = str(getattr(row, "Parameter"))
+            if name not in values:
+                continue
+            try:
+                values[name] = ast.literal_eval(str(getattr(row, "Value")))
+            except (ValueError, SyntaxError):
+                values[name] = str(getattr(row, "Value"))
+    if "horizon" in values and values["horizon"] != horizon_days:
+        raise ValueError(
+            "The configured forecast horizon does not match the active prescriptive horizon; "
+            "refresh forecasts with the approved horizon before MCA assessment."
+        )
+    config = ForecastConfig(**values)
+    config.validate()
+    return config
+
+
+def _regenerate_aligned_forecast(
+    transactions: pd.DataFrame,
+    forecast_results: dict,
+    assessment_end: pd.Timestamp,
+    horizon_days: int,
+) -> dict:
+    """Regenerate only with the active SKU mapping and recorded method settings."""
+    from sku_forecasting import run_sku_forecasting
+
+    mapping = forecast_results.get("sku_mapping")
+    if not isinstance(mapping, pd.DataFrame) or mapping.empty:
+        raise ValueError(
+            "The active forecast has no SKU mapping; refresh stock mapping before "
+            "regenerating a date-aligned forecast."
+        )
+    config = _recorded_forecast_config(forecast_results, horizon_days)
+    regenerated = run_sku_forecasting(
+        transactions=transactions,
+        mapping=mapping,
+        coverage_end=assessment_end,
+        config=config,
+    )
+    output = regenerated.get("forecast_output")
+    if not isinstance(output, pd.DataFrame) or output.empty or "Time" not in output:
+        raise ValueError("Forecast regeneration produced no eligible SKU forecasts.")
+    actual_dates = pd.DatetimeIndex(pd.to_datetime(output["Time"], errors="coerce").dropna().dt.normalize().unique()).sort_values()
+    expected_dates = pd.date_range(
+        assessment_end + pd.Timedelta(days=1), periods=horizon_days, freq="D"
+    )
+    if not actual_dates.equals(expected_dates):
+        raise ValueError(
+            "Regenerated forecast dates do not exactly cover the configured daily horizon "
+            "after the MCA assessment endpoint."
+        )
+    return regenerated
+
+
 def run_prescriptive_pipeline(
     transactions: pd.DataFrame,
     analytics_results: dict[str, pd.DataFrame],
@@ -202,6 +269,28 @@ def run_prescriptive_pipeline(
         mca_period_start, mca_period_end = mca_coverage.order_start, mca_coverage.order_end
     if not isinstance(forecast_horizon_days, int) or isinstance(forecast_horizon_days, bool) or forecast_horizon_days < 1:
         raise ValueError("forecast_horizon_days must be a positive integer")
+    if mca_coverage is not None:
+        assessment_end = pd.Timestamp(mca_coverage.order_end).normalize()
+        active_output = forecast_results.get("forecast_output", pd.DataFrame())
+        active_dates = (
+            pd.to_datetime(active_output["Time"], errors="coerce").dropna().dt.normalize()
+            if isinstance(active_output, pd.DataFrame) and "Time" in active_output
+            else pd.Series(dtype="datetime64[ns]")
+        )
+        expected_dates = pd.date_range(
+            assessment_end + pd.Timedelta(days=1), periods=forecast_horizon_days, freq="D"
+        )
+        if not active_dates.empty and not pd.DatetimeIndex(active_dates.unique()).sort_values().equals(expected_dates):
+            LOGGER = logging.getLogger(__name__)
+            LOGGER.warning(
+                "Forecast dates do not match the MCA assessment window; regenerating "
+                "with the active mapping and recorded methodology."
+            )
+            forecast_results = _regenerate_aligned_forecast(
+                transactions, forecast_results, assessment_end, forecast_horizon_days
+            )
+        elif active_dates.empty:
+            raise ValueError("No forecast dates are available for the MCA assessment window.")
     forecast = _forecast_by_sku(forecast_results.get("forecast_output", pd.DataFrame()), forecast_horizon_days)
     if isinstance(max_stock_age_days, bool) or not isinstance(max_stock_age_days, int) or max_stock_age_days < 1:
         raise ValueError("max_stock_age_days must be a positive integer")
@@ -280,9 +369,6 @@ def run_prescriptive_pipeline(
         assessment_end = pd.Timestamp(mca_coverage.order_end).normalize()
         if prepared["Time"].dt.normalize().max() > assessment_end:
             raise ValueError("Three-criterion historical assessment requires sales/analytics/forecasts restricted to its order-date endpoint")
-        forecast_start = pd.to_datetime(forecast_results["forecast_output"]["Time"]).min().normalize()
-        if forecast_start != assessment_end + pd.Timedelta(days=1):
-            raise ValueError("Forecast horizon must start the day after the MCA assessment endpoint")
         snapshot = mca_return_snapshot if mca_return_snapshot is not None else pd.DataFrame(columns=REQUIRED)
         return_audit, request_review = evaluate_requests(transactions, snapshot, mapped, mca_coverage)
         criteria = criteria.merge(return_audit.drop(columns="product_key"), on="SKU", how="left", validate="one_to_one")
